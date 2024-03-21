@@ -23,7 +23,8 @@ import pylab as plt
 from scipy.integrate import odeint
 import scipy.io as io
 
-from geometrical_cell_properties import muscle_fiber, half_sarcomere
+from anatomical_parameters import muscle_fiber, half_sarcomere
+from conductance_parameters import conductance_potential, sarcolemma_conductances, tubular_conductances
 
 class SingleFiber():
         
@@ -59,36 +60,16 @@ class SingleFiber():
             I_inj = 200
         return I_inj             
 
-    # General Parameters
-    C_m   = 0.58                                                               # Membrane Capacitance
-    F     = 96.485
-    R     = 8.31441
-    T     = 273+37.0
-
     # Muscle Fiber Geometry
     dx, r, Vsr, VsrS, p, ot, Gl, Ra, Ri, Vol, Ait, gl, b = muscle_fiber()
     # Half-Sarcomere Geometry
     Lx, RR, V0, VsrM, VsrC, V_t, V_m, Vm_t, Vm, Vsr_t, Vsr = half_sarcomere()
-
+    # General Conductance Parameters
+    C_m, F, R, T = conductance_potential()
     # Ion Channel Conductances (Sarcolemma)
-    g_K   = 21.6
-    g_Kir = 3.7
-    g_Na  = 268
-    g_Cl  = 6.55
-    g_NaK = 207.0*(10**-6)
-    
+    g_K, g_Kir, g_Na, g_Cl, g_NaK = sarcolemma_conductances()
     # Ion Channel Conductances (Tubular System)
-    nk      = 0.45
-    nir     = 1.0
-    nNa     = 0.1
-    nCl     = 0.1
-    npump   = 0.1     
-    g_K_t   = nk*g_K
-    g_Kir_t = nir*g_Kir
-    g_Na_t  = nNa*g_Na
-    g_Cl_t  = nCl*g_Cl
-    g_NaK_t = npump*g_NaK
-    g_Ca_t  = 3.13
+    g_K_t, g_Kir_t, g_Na_t, g_Cl_t, g_NaK_t, g_Ca_t = tubular_conductances()
     
    # Ion Concentrations and Nernst Potentials (Sarcolemma)
     Nao   = 140.0

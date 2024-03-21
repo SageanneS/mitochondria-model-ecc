@@ -12,8 +12,6 @@ This model describes the 2 compartment version (i.e. 1 Sarcolemma Compartment,
 1 Tubular Compartment) of the integrated skeletal muscle excitation-contraction
 coupling model with mitochondrial dynamics for fast twitch fibers.
 
-This model version does not contain temperature dependence.
-
 @author: Sageanne Senneff
 """
 import time
@@ -29,7 +27,7 @@ class SingleFiber():
         
     # Define Global Variables
     global duration, dt, r, dx, Ait
-    global Vrp, urp, V_t, Vm_t, Vm, Vsr_t, Vsr, V_m
+    global Vrp, urp, V_t, Vm_t, Vm, Vsr_t, Vsr, V_m, VsrS
     global C_m, F, R, T, Ra, mr, tk, tCa
     global g_K, g_Kir, g_Na, g_Cl, g_NaK, g_K_t, g_Kir_t, g_Na_t, g_Cl_t, g_NaK_t, g_Ca_t
     global ko, ki, Nao, Nai, Clo, Cli, ko_t, ki_t, Nao_t, Nai_t, Clo_t, Cli_t 
@@ -57,33 +55,13 @@ class SingleFiber():
         I_inj = 0
         if (t >= 0 and t <= 0.6):
             I_inj = 200
-        return I_inj
-                         
-    # Temperature Parameters
-    T       = 273+37.0
-    q10gi   = 1.37
-    q10c    = 1.02
-    q10k    = 2.5
-    q10Na   = 2.3
-    q10Na1  = 1.5
-    q10k1   = 1.5
-    q10cl   = 1.5
-    q10ir   = 1.55
-    q10pump = 1.0
-    temp_coeffgi   = 1
-    temp_coeffc    = 1
-    temp_coeffk    = 1
-    temp_coeffk1   = 1
-    temp_coeffNa   = 1
-    temp_coeffNa1  = 1
-    temp_coeffir   = 1
-    temp_coeffcl   = 1
-    temp_coeffpump = 1
+        return I_inj             
 
     # General Parameters
-    C_m   = 0.58*temp_coeffc                                                   # Membrane Capacitance
+    C_m   = 0.58                                                               # Membrane Capacitance
     F     = 96.485
     R     = 8.31441
+    T     = 273+37.0
 
     # Muscle Fiber Geometry
     dx    = 100.0*(10**-4)
@@ -92,9 +70,9 @@ class SingleFiber():
     VsrS  = 4.1*(10**-6)                                                       # volume-surface ratio sarcolemma
     p     = 0.003
     ot    = 0.34
-    Gl    = 3.7*p*ot*temp_coeffgi
-    Ra    = 0.150/temp_coeffgi
-    Ri    = 0.125/temp_coeffgi
+    Gl    = 3.7*p*ot
+    Ra    = 0.150
+    Ri    = 0.125
     Vol   = sp.pi*dx*(r**2)
     Ait   = p*Vol/Vsr
     gl    = (2.0*sp.pi*r*dx*Gl)/(r/20.0)
@@ -114,11 +92,11 @@ class SingleFiber():
     Vsr    = 0.99*VsrC  #V_SR                                                  # um^3 SR less TSR Volume
 
     # Ion Channel Conductances (Sarcolemma)
-    g_K   = 21.6*temp_coeffk1
-    g_Kir = 3.7*temp_coeffir
-    g_Na  = 268*temp_coeffNa1
-    g_Cl  = 6.55*temp_coeffcl
-    g_NaK = 207.0*(10**-6)*temp_coeffpump
+    g_K   = 21.6
+    g_Kir = 3.7
+    g_Na  = 268
+    g_Cl  = 6.55
+    g_NaK = 207.0*(10**-6)
     
     # Ion Channel Conductances (Tubular System)
     nk      = 0.45
@@ -408,7 +386,7 @@ class SingleFiber():
 
     # Calcium Dynamics (Myoplasm)
     def J_RyR(self, o_0, o_1, o_2, o_3, o_4, f_Ca, CaSR_t, Cai_t):            
-        J_RYR = (o_0 + o_1 + o_2 + o_3 + o_4)*f_Ca)*(CaSR_t - Cai_t)  
+        J_RYR = ((o_0 + o_1 + o_2 + o_3 + o_4)*f_Ca)*(CaSR_t - Cai_t)  
         return J_RYR 
     def J_SERCA_t(self, Cai_t, ATP_t):
         J_SERCA_t = vusr*((Cai_t**n_S)/(Kcsr + (Cai_t**n_S)))*(ATP_t/(Kasr + ATP_t))
@@ -497,7 +475,7 @@ class SingleFiber():
         dmdt   = self.alpha_m(V)*(1.0-m) - self.beta_m(V)*m  
         dhdt   = self.alpha_h(V)*(1.0-h) - self.beta_h(V)*h       
         dSdt   = (self.Sinf(V) - S)/self.ts(V) 
-        dudt = (1.0/C_m)*(((V -u)*((2*sp.pi*r[i]*dx)/(Ra*Ait[i]))) - self.I_t(u, n_t, hk_t, m_t, h_t, S_t, f_Ca, o_0, o_1, o_2, o_3, o_4, Cai_t, ATP, Ko_t, Ki_t, Cao_t))  
+        dudt = (1.0/C_m)*(((V -u)*((2*sp.pi*r*dx)/(Ra*Ait))) - self.I_t(u, n_t, hk_t, m_t, h_t, S_t, f_Ca, o_0, o_1, o_2, o_3, o_4, Cai_t, ATP, Ko_t, Ki_t, Cao_t))  
 
         dntdt  = self.alpha_n_t(u)*(1.0-n_t) - self.beta_n_t(u)*n_t
         dhktdt = (self.hkinf_t(u) - hk_t)/self.thk_t(u)

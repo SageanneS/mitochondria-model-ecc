@@ -1,1 +1,1 @@
-# Mitochondria_Muscle_Force_Model
+# mitochondria-model-ecc

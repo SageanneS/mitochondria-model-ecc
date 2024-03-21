@@ -63,7 +63,7 @@ class SingleFiber():
     # Half-Sarcomere Geometry
     Lx, RR, V0, VsrM, VsrC, V_t, V_m, Vm_t, Vm, Vsr_t, Vsr = half_sarcomere()
     # General Conductance Parameters
-    C_m, F, R, T = conductance_potential()
+    C_m, F, R, T, Nao, Nai, Clo, Cli, Nao_t, Nai_t, Clo_t, Cli_t = conductance_potential()
     # Ion Channel Conductances (Sarcolemma)
     g_K, g_Kir, g_Na, g_Cl, g_NaK = sarcolemma_conductances()
     # Ion Channel Conductances (Tubular System)
@@ -74,18 +74,10 @@ class SingleFiber():
     K_fCa, a_fCa, alpha, K_RyR, Vbar, kL, kL_m, fallo, i2 = voltage_calcium_channel_rates()
 
    # Ion Concentrations and Nernst Potentials (Sarcolemma)
-    Nao   = 140.0
-    Nai   = 10.0
-    Clo   = 128.0
-    Cli   = 5.7
     E_Na  = ((R*T)/F)*sp.log(Nao/Nai)
     E_Cl  = -((T*T)/F)*sp.log(Clo/Cli)
     
     # Ion Concentrations and Nernst Potentials (Tubular System)
-    Nao_t   = Nao
-    Nai_t   = Nai
-    Clo_t   = Clo
-    Cli_t   = Cli 
     E_Na_t  = ((R*T)/F)*sp.log(Nao_t/Nai_t)
     E_Cl_t  = -((R*T)/F)*sp.log(Clo_t/Cli_t)
 

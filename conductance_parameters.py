@@ -7,7 +7,18 @@ def conductance_potential():
     R     = 8.31441  # Gas Constant
     T     = 273+37.0 # Temperature (Kelvins)
 
-    return C_m, F, R, T
+    # Ion Concentrations - Sarcolemma
+    Nao   = 140.0
+    Nai   = 10.0
+    Clo   = 128.0
+    Cli   = 5.7
+    # Ion Concentrations - Tubules
+    Nao_t   = Nao
+    Nai_t   = Nai
+    Clo_t   = Clo
+    Cli_t   = Cli 
+
+    return C_m, F, R, T, Nao, Nai, Clo, Cli, Nao_t, Nai_t, Clo_t, Cli_t
 
 def sarcolemma_conductances():
 

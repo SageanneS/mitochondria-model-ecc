@@ -25,25 +25,23 @@ import scipy.io as io
 
 from anatomical_parameters import muscle_fiber, half_sarcomere
 from conductance_parameters import conductance_potential, sarcolemma_conductances, tubular_conductances
+from rate_parameters import voltage_channel_rates, voltage_calcium_channel_rates
 
 class SingleFiber():
         
     # Define Global Variables
     global duration, dt
     global Vrp, urp
-    global C_m, F, R, T, mr, tk, tCa
-    global g_K, g_Kir, g_Na, g_Cl, g_NaK, g_K_t, g_Kir_t, g_Na_t, g_Cl_t, g_NaK_t, g_Ca_t
+    global mr, tk, tCa
     global ko, ki, Nao, Nai, Clo, Cli, ko_t, ki_t, Nao_t, Nai_t, Clo_t, Cli_t 
     global E_Na, E_Cl, E_Na_t, E_Cl_t   
     global Gkir, I_nak, f_nak, Gkir_t, I_nak_t, f_nak_t
-    global a_n, b_n, Van, Vbn, Vn, Vhk, Ahk, a_m, b_m, Vam, Vbm, Vm2, a_h, b_h, Vah, Vbh, Vh, Vs, As, Aa, a_fCa, K_fCa
-    global sigma, Ks, Si, Kk, Kmk, KmNa
-    global kL, kL_m, fallo, Vbar, K_RyR, alpha, i2, Cao_t, Le, vusr, tR, tSR, Kcsr, kPon, kPoff, Ptot, kMgon, kMgoff  
+    global Cao_t, Le, vusr, tR, tSR, Kcsr, kPon, kPoff, Ptot, kMgon, kMgoff  
     global kCatpon, kCatpoff, kTon, kToff, kCson, kCsoff, Cstot, Ttot, PP, Ap, Bp, tATP, kMatpon, kMatpoff, tMg
     global k0on, k0off, kCaon, kCaoff, f0, hp, h0, fp, g0, bbp, kp
     global f_c, f_m, V_MCU, V_NCX, k_mPTP, V_ANT, V_F1F0, V_AGC, k_HYD, k_GLY, k_ETC, K_AGC, q_6, q_8, a1, a2, q_9, q_10
     global K_1, K_2, L, nA, q_7, Cam_thresh, p_3, KATP, theta, K_h, q_1, NADm_tot, q_2, q_3, q_4, q_5, p_4, C_p
-    global alpha_c, alpham_m, Kank, n_S, Kasr
+    global alpha_c, alpham_m, n_S, Kasr
 
     # Simulation Parameters
     dt       = 0.001
@@ -70,14 +68,18 @@ class SingleFiber():
     g_K, g_Kir, g_Na, g_Cl, g_NaK = sarcolemma_conductances()
     # Ion Channel Conductances (Tubular System)
     g_K_t, g_Kir_t, g_Na_t, g_Cl_t, g_NaK_t, g_Ca_t = tubular_conductances()
-    
+    # Voltage-Dependent Ion Channel Rate Parameters
+    a_n, Van, Vn, b_n, Vbn, Vhk, Ahk, Kk, Ks, Si, sigma, a_m, Vm2, Vam, b_m, Vbm, a_h, Vh, Vah, b_h, Vbh, Vs, As, Va, Aa, Kmk, KmNa, Kank = voltage_channel_rates()
+    # Voltage-Dependent and Calcium-Dependent Ion Channel Rate Parameters 
+    K_fCa, a_fCa, alpha, K_RyR, Vbar, kL, kL_m, fallo, i2 = voltage_calcium_channel_rates()
+
    # Ion Concentrations and Nernst Potentials (Sarcolemma)
     Nao   = 140.0
     Nai   = 10.0
     Clo   = 128.0
     Cli   = 5.7
     E_Na  = ((R*T)/F)*sp.log(Nao/Nai)
-    E_Cl  = -((R*T)/F)*sp.log(Clo/Cli)
+    E_Cl  = -((T*T)/F)*sp.log(Clo/Cli)
     
     # Ion Concentrations and Nernst Potentials (Tubular System)
     Nao_t   = Nao
@@ -87,48 +89,7 @@ class SingleFiber():
     E_Na_t  = ((R*T)/F)*sp.log(Nao_t/Nai_t)
     E_Cl_t  = -((R*T)/F)*sp.log(Clo_t/Cli_t)
 
-    # Ion Channel Rate Parameters
-    a_n   = 0.0131
-    Van   = 7.0
-    Vn    = -40.0
-    b_n   = 0.067
-    Vbn   = 40.0
-    Vhk   = -40.0
-    Ahk   = 7.5
-    Kk    = 950.0
-    Ks    = 1.0
-    Si    = 10.0
-    sigma = 0.4
-    a_m   = 0.288
-    Vm2   = -46.0
-    Vam   = 10.0
-    b_m   = 1.38
-    Vbm   = 18.0
-    a_h   = 0.0081
-    Vh    = -45.0
-    Vah   = 14.7
-    b_h   = 4.38
-    Vbh   = 9.0
-    Vs    = -68.0
-    As    = 7.1
-    Va    = 70.0
-    Aa    = 150.0
-    Kmk   = 1.0
-    KmNa  = 13.0
-    Kank  = 540.0                                                              # Hill Coefficient for ATP Dependence of NaK Pump
-
-    # DHPR Gating Parameters
-    K_fCa = 1.0
-    a_fCa = 0.14                                                               # uM/ms 
-    alpha = 0.2
-    K_RyR = 4.5
-    Vbar  = -20.0
-    kL    = 0.002
-    kL_m  = 1000.0
-    fallo = 0.2
-    i2    = 60.0
-
-    # Calcium Transport and XB Dynamics Parameters
+   # Calcium Transport and XB Dynamics Parameters
     Le       = 0.00004                                                         # uM/ms*um^3 SR Ca leak constant
     kCson    = 0.000004                                                        # /uM*ms Rate of SR Ca binding from Calsequestrin
     kCsoff   = 0.005                                                           # /ms Rate of SR Ca dissociation from Calsequestrin
@@ -219,122 +180,122 @@ class SingleFiber():
 
     # IKDR Channel
     def alpha_n(self,V):
-        return a_n*(V-Vn)/(1-sp.exp(-(V-Vn)/Van))        
+        return self.a_n*(V-self.Vn)/(1-sp.exp(-(V-self.Vn)/self.Van))        
     def beta_n(self,V):
-        return b_n*sp.exp(-(V-Vn)/Vbn)    
+        return self.b_n*sp.exp(-(V-self.Vn)/self.Vbn)    
     def hkinf(self,V):
-        return 1/(1+sp.exp((V-Vhk)/Ahk))
+        return 1/(1+sp.exp((V-self.Vhk)/self.Ahk))
     def thk(self,V):
         return (sp.exp(-(V+40.0)/25.75))*(10**3) 
     # IKDRT Channel
     def alpha_n_t(self,u):
-        return a_n*(u-Vn)/(1-sp.exp(-(u-Vn)/Van))        
+        return self.a_n*(u-self.Vn)/(1-sp.exp(-(u-self.Vn)/self.Van))        
     def beta_n_t(self,u):
-        return b_n*sp.exp(-(u-Vn)/Vbn)   
+        return self.b_n*sp.exp(-(u-self.Vn)/self.Vbn)   
     def hkinf_t(self,u):
-        return 1.0/(1.0+sp.exp((u-Vhk)/Ahk))
+        return 1.0/(1.0+sp.exp((u-self.Vhk)/self.Ahk))
     def thk_t(self,u):
         return (sp.exp(-(u+40.0)/25.75))*(10**3)  
 
     # IKIR Channel
     def Gkir(self,V, Ko, Ki):
-        E_K   = ((R*T)/F)*sp.log(Ko/Ki)
-        Kr    = Ko*sp.exp(-(sigma*E_K*F)/(R*T))
-        ks    = Ks/((Si**2.0)*sp.exp(2.0*(1.0-sigma)*(V*F)/(R*T)))
-        Kr1   = 1.0 + ((Kr**2.0)/Kk)
+        E_K   = ((self.R*self.T)/self.F)*sp.log(Ko/Ki)
+        Kr    = Ko*sp.exp(-(self.sigma*E_K*self.F)/(self.R*self.T))
+        ks    = self.Ks/((self.Si**2.0)*sp.exp(2.0*(1.0-self.sigma)*(V*self.F)/(self.R*self.T)))
+        Kr1   = 1.0 + ((Kr**2.0)/self.Kk)
         y     = 1.0 - (1.0/(1.0 + (ks*Kr1)))
-        gir   = g_Kir*(Kr**2.0)/(Kk+(Kr**2.0))
+        gir   = self.g_Kir*(Kr**2.0)/(self.Kk+(Kr**2.0))
         return gir*y
     # IKIRT Channel
     def Gkir_t(self,u, Ko_t, Ki_t):
-        E_K_t   = ((R*T)/F)*sp.log(Ko_t/Ki_t)
-        Kr_t    = Ko_t*sp.exp(-(sigma*E_K_t*F)/(R*T))
-        ks_t    = Ks/((Si**2.0)*sp.exp(2.0*(1.0-sigma)*(u*F)/(R*T)))
-        Kr1_t   = 1.0 + ((Kr_t**2.0)/Kk)
+        E_K_t   = ((self.R*self.T)/self.F)*sp.log(Ko_t/Ki_t)
+        Kr_t    = Ko_t*sp.exp(-(self.sigma*E_K_t*self.F)/(self.R*self.T))
+        ks_t    = self.Ks/((self.Si**2.0)*sp.exp(2.0*(1.0-self.sigma)*(u*self.F)/(self.R*self.T)))
+        Kr1_t   = 1.0 + ((Kr_t**2.0)/self.Kk)
         y_t     = 1.0 - (1.0/(1.0 + (ks_t*Kr1_t)))
-        gir_t   = g_Kir_t*(Kr_t**2.0)/(Kk+(Kr_t**2.0))
+        gir_t   = self.g_Kir_t*(Kr_t**2.0)/(self.Kk+(Kr_t**2.0))
         return gir_t*y_t
 
     # INA Channel
     def alpha_m(self, V):
-        return a_m*(V-Vm2)/(1-sp.exp(-(V-Vm2)/Vam))
+        return self.a_m*(V-self.Vm2)/(1-sp.exp(-(V-self.Vm2)/self.Vam))
     def beta_m(self, V):
-        return b_m*sp.exp(-(V-Vm2)/Vbm)
+        return self.b_m*sp.exp(-(V-self.Vm2)/self.Vbm)
     def alpha_h(self, V):
-        return a_h*sp.exp(-(V-Vh)/Vah)
+        return self.a_h*sp.exp(-(V-self.Vh)/self.Vah)
     def beta_h(self, V):
-        return b_h/(1+sp.exp(-(V-Vh)/Vbh))
+        return self.b_h/(1+sp.exp(-(V-self.Vh)/self.Vbh))
     def Sinf(self,V):
-        return 1.0/(1.0+sp.exp((V-Vs)/As))
+        return 1.0/(1.0+sp.exp((V-self.Vs)/self.As))
     def ts(self,V):
         return (60.0/(0.2+(5.65*(((V+70.0)/100.0)**2.0))))*(10**3)
     # INAT Channel
     def alpha_m_t(self,u):
-        return a_m*(u-Vm2)/(1-sp.exp(-(u-Vm2)/Vam))
+        return self.a_m*(u-self.Vm2)/(1-sp.exp(-(u-self.Vm2)/self.Vam))
     def beta_m_t(self,u):
-        return b_m*sp.exp(-(u-Vm2)/Vbm)
+        return self.b_m*sp.exp(-(u-self.Vm2)/self.Vbm)
     def alpha_h_t(self,u):
-        return a_h*sp.exp(-(u-Vh)/Vah)
+        return self.a_h*sp.exp(-(u-self.Vh)/self.Vah)
     def beta_h_t(self,u):
-        return b_h/(1.0+sp.exp(-(u-Vh)/Vbh))
+        return self.b_h/(1.0+sp.exp(-(u-self.Vh)/self.Vbh))
     def Sinf_t(self,u):
-        return 1.0/(1.0+sp.exp((u-Vs)/As))
+        return 1.0/(1.0+sp.exp((u-self.Vs)/self.As))
     def ts_t(self,u):
         return (60.0/(0.2+(5.65*(((u+70.0)/100.0)**2.0))))*(10**3)
     
     # NaK Pump
     def I_nak(self,V, Ko):
-        return (F*g_NaK)/((1+(Kmk/(Ko**2)))*(1+((KmNa/Nai)**3)))
+        return (self.F*self.g_NaK)/((1+(self.Kmk/(Ko**2)))*(1+((self.KmNa/Nai)**3)))
     def f_nak(self,V):
         o     = (sp.exp(Nao/67.3)-1)*(1.0/7.0)    
-        return 1.0/(1.0 + (0.12*sp.exp(-(0.1*F*V)/(R*T))) + (0.04*o*sp.exp(-(F*V)/(R*T))))
+        return 1.0/(1.0 + (0.12*sp.exp(-(0.1*self.F*V)/(self.R*self.T))) + (0.04*o*sp.exp(-(self.F*V)/(self.R*self.T))))
     # NaKT Pump
     def I_nak_t(self,u, Ko_t):
-        return (F*g_NaK_t)/((1+(Kmk/(Ko_t**2)))*(1.0+((KmNa/Nai_t)**3)))
+        return (self.F*self.g_NaK_t)/((1+(self.Kmk/(Ko_t**2)))*(1.0+((self.KmNa/Nai_t)**3)))
     def f_nak_t(self,u):
         o_t   = (sp.exp(Nao_t/67.3)-1)*(1.0/7.0)    
-        return 1.0/(1.0 + (0.12*sp.exp(-(0.1*F*u)/(R*T))) + (0.04*o_t*sp.exp(-(F*u)/(R*T))))
+        return 1.0/(1.0 + (0.12*sp.exp(-(0.1*self.F*u)/(self.R*self.T))) + (0.04*o_t*sp.exp(-(self.F*u)/(self.R*self.T))))
     
     # ICAT Channel
     def fCainf_t(self, Cai_t):
-        return 1/(1 + (Cai_t/(K_fCa)))  
+        return 1/(1 + (Cai_t/(self.K_fCa)))  
     def tfCa_t(self, Cai_t):
-        return 1/(a_fCa*(1 + (Cai_t/K_fCa))) 
+        return 1/(self.a_fCa*(1 + (Cai_t/self.K_fCa))) 
     def kC(self, u):
-        return 0.5*alpha*sp.exp((u-Vbar)/(8*K_RyR))
+        return 0.5*self.alpha*sp.exp((u-self.Vbar)/(8*self.K_RyR))
     def kC_m(self, u):
-        return 0.5*alpha*sp.exp(-(u-Vbar)/(8*K_RyR))
+        return 0.5*self.alpha*sp.exp(-(u-self.Vbar)/(8*self.K_RyR))
 
     # Ion Channels
     def I_KDR(self, V, n, hk, Ko, Ki):
-        E_K = ((R*T)/F)*sp.log(Ko/Ki)
-        return g_K  * n**4 * hk * (V - E_K) 
+        E_K = ((self.R*self.T)/self.F)*sp.log(Ko/Ki)
+        return self.g_K  * n**4 * hk * (V - E_K) 
     def I_KDR_t(self, u, n_t, hk_t, Ko_t, Ki_t):
-        E_K_t = ((R*T)/F)*sp.log(Ko_t/Ki_t)
-        return g_K_t  * n_t**4 * hk_t * (u - E_K_t)  
+        E_K_t = ((self.R*self.T)/self.F)*sp.log(Ko_t/Ki_t)
+        return self.g_K_t  * n_t**4 * hk_t * (u - E_K_t)  
     def I_KIR(self, V, Ko, Ki):
-        E_K = ((R*T)/F)*sp.log(Ko/Ki)
+        E_K = ((self.R*self.T)/self.F)*sp.log(Ko/Ki)
         return Gkir(self,V, Ko, Ki) * (V - E_K) 
     def I_KIR_t(self, u, Ko_t, Ki_t):
-        E_K_t = ((R*T)/F)*sp.log(Ko_t/Ki_t)
+        E_K_t = ((self.R*self.T)/self.F)*sp.log(Ko_t/Ki_t)
         return Gkir_t(self,u, Ko_t, Ki_t) * (u - E_K_t)
     def I_Na(self, V, m, h, S):
-        return g_Na * m**3.0 * h * S * (V - E_Na)  
+        return self.g_Na * m**3.0 * h * S * (V - E_Na)  
     def I_Na_t(self, u, m_t, h_t, S_t):
-        return g_Na_t * m_t**3.0 * h_t * S_t * (u - E_Na_t)      
+        return self.g_Na_t * m_t**3.0 * h_t * S_t * (u - E_Na_t)      
     def I_Cl(self, V):
-        A = 1/(1+sp.exp((V-Aa)/Aa))
-        return g_Cl * A**4.0 * (V - E_Cl)
+        A = 1/(1+sp.exp((V-self.Aa)/self.Aa))
+        return self.g_Cl * A**4.0 * (V - E_Cl)
     def I_Cl_t(self, u):
-        A_t = 1/(1+sp.exp((u-Aa)/Aa))
-        return g_Cl_t * A_t**4.0 * (u - E_Cl_t)    
+        A_t = 1/(1+sp.exp((u-self.Aa)/self.Aa))
+        return self.g_Cl_t * A_t**4.0 * (u - E_Cl_t)    
     def I_NaK(self, V, Ko):     
         return I_nak(self,V, Ko)*f_nak(self,V)
     def I_NaK_t(self, u, ATP, Ko_t):     
-        return I_nak_t(self,u, Ko_t)*f_nak_t(self,u)*(ATP/(Kank + ATP)) 
+        return I_nak_t(self,u, Ko_t)*f_nak_t(self,u)*(ATP/(self.Kank + ATP)) 
     def I_Ca_t(self, o_0, o_1, o_2, o_3, o_4, u, f_Ca, Cai_t, Cao_t):
-        E_Ca_t = ((R*T)/F)*sp.log(Cao_t/Cai_t)
-        return g_Ca_t*((o_0 + o_1 + o_2 + o_3 + o_4)*f_Ca)*(u - E_Ca_t)
+        E_Ca_t = ((self.R*self.T)/self.F)*sp.log(Cao_t/Cai_t)
+        return self.g_Ca_t*((o_0 + o_1 + o_2 + o_3 + o_4)*f_Ca)*(u - E_Ca_t)
 
     # Total Ionic Current
     def I(self, t, V, n, hk, m, h, S, Ko, Ki, i):
@@ -357,13 +318,13 @@ class SingleFiber():
     
     # Calcium Dynamics (Mitochondria)    
     def J_MCU_t(self, Cai_t, Psi_t):
-        return V_MCU*(((Cai_t/K_1)*((1 + (Cai_t/K_1))**3)*((2*F)*(Psi_t - 91.0)/(R*T)))/(((1 + (Cai_t/K_1))**4) + (L/((1 + (Cai_t/K_2))**nA))*(1 - sp.exp((-(2*F)*(Psi_t - 91.0))/(R*T)))))
+        return V_MCU*(((Cai_t/K_1)*((1 + (Cai_t/K_1))**3)*((2*self.F)*(Psi_t - 91.0)/(self.R*self.T)))/(((1 + (Cai_t/K_1))**4) + (L/((1 + (Cai_t/K_2))**nA))*(1 - sp.exp((-(2*self.F)*(Psi_t - 91.0))/(self.R*self.T)))))
     def J_MCU(self, Cai, Psi):
-        return V_MCU*(((Cai/K_1)*((1 + (Cai/K_1))**3)*((2*F)*(Psi - 91.0)/(R*T)))/(((1 + (Cai/K_1))**4) + (L/((1 + (Cai/K_2))**nA))*(1 - sp.exp((-(2*F)*(Psi - 91.0))/(R*T)))))
+        return V_MCU*(((Cai/K_1)*((1 + (Cai/K_1))**3)*((2*self.F)*(Psi - 91.0)/(self.R*self.T)))/(((1 + (Cai/K_1))**4) + (L/((1 + (Cai/K_2))**nA))*(1 - sp.exp((-(2*self.F)*(Psi - 91.0))/(self.R*self.T)))))
     def J_NCX_t(self, Cai_t, Cam_t, Psi_t):
-        return V_NCX*(sp.exp((0.5*F/(R*T))*(Psi_t - q_7))*sp.exp(sp.log(Cai_t/Cam_t)))/((1 + (9.4/Nai_t)**3)*(1 + (1.1/Cam_t)))
+        return V_NCX*(sp.exp((0.5*self.F/(self.R*self.T))*(Psi_t - q_7))*sp.exp(sp.log(Cai_t/Cam_t)))/((1 + (9.4/Nai_t)**3)*(1 + (1.1/Cam_t)))
     def J_NCX(self, Cai, Cam, Psi):
-        return V_NCX*(sp.exp((0.5*F/(R*T))*(Psi - q_7))*sp.exp(sp.log(Cai/Cam)))/((1 + (9.4/Nai_t)**3)*(1 + (1.1/Cam)))
+        return V_NCX*(sp.exp((0.5*self.F/(self.R*self.T))*(Psi - q_7))*sp.exp(sp.log(Cai/Cam)))/((1 + (9.4/Nai_t)**3)*(1 + (1.1/Cam)))
     
     def J_mPTP_t(self, Cam_t, Cai_t, Psi_t, t):
         J_mPTP_t = (k_mPTP*(Cai_t - Cam_t)*sp.exp(p_3*Psi_t)) # Low Conductance
@@ -405,9 +366,9 @@ class SingleFiber():
     def J_F1F0(self, ATPm, Psi):
         return V_F1F0*(q_6/(q_6 + ATPm))*(1/(1 + sp.exp((q_7-Psi)/q_8)))
     def J_ANT_t(self, ADP_t, ATP_t, Psi_t, ADPm_t, ATPm_t):
-        return V_ANT*(ADP_t/(ADP_t + ATP_t*sp.exp(-(theta*F)*Psi_t/(R*T))) - ADPm_t/(ADPm_t + ATPm_t*sp.exp(((1-theta)*F)*Psi_t/(R*T))))*(1/(1 + KATP/ADP_t))
+        return V_ANT*(ADP_t/(ADP_t + ATP_t*sp.exp(-(theta*self.F)*Psi_t/(self.R*self.T))) - ADPm_t/(ADPm_t + ATPm_t*sp.exp(((1-theta)*self.F)*Psi_t/(self.R*self.T))))*(1/(1 + KATP/ADP_t))
     def J_ANT(self, ADP, ATP, Psi, ADPm, ATPm):
-        return V_ANT*(ADP/(ADP + ATP*sp.exp(-(theta*F)*Psi/(R*T))) - ADPm/(ADPm + ATPm*sp.exp(((1-theta)*F)*Psi/(R*T))))*(1/(1 + KATP/ADP))
+        return V_ANT*(ADP/(ADP + ATP*sp.exp(-(theta*self.F)*Psi/(self.R*self.T))) - ADPm/(ADPm + ATPm*sp.exp(((1-theta)*self.F)*Psi/(self.R*self.T))))*(1/(1 + KATP/ADP))
     def J_Hleak_t(self, Psi_t):
         return q_9*Psi_t + q_10
     def J_Hleak(self, Psi):
@@ -429,29 +390,29 @@ class SingleFiber():
         
         V, n, hk, m, h, S, u, n_t, hk_t, m_t, h_t, S_t, c_0, o_0, c_1, o_1, c_2, o_2, c_3, o_3, c_4, o_4, f_Ca, Cai_t, Cai, CaSR_t, CaSR, CaCS_t, CaCS, CaATP_t, CaATP, MgATP_t, MgATP, Mg_t, Mg, ATP_t, ATP, ADP_t, ADP, CaT, CaCaT, D0, D1, D2, A1, A2, P, PSR, PCSR, Cam_t, Cam, NADHm_t, NADHm, ADPm_t, ADPm, ATPm_t, ATPm, Psi_t, Psi, Cao_t, Ko_t, Ki_t, Ko, Ki = X
 
-        dVdt   = -(1.0/C_m) * (self.I(t, V, n, hk, m, h, S, Ko, Ki, i) + self.I_trans(V,u))    
+        dVdt   = -(1.0/self.C_m) * (self.I(t, V, n, hk, m, h, S, Ko, Ki, i) + self.I_trans(V,u))    
         dndt   = self.alpha_n(V)*(1.0-n) - self.beta_n(V)*n
         dhkdt  = (self.hkinf(V) - hk)/self.thk(V)
         dmdt   = self.alpha_m(V)*(1.0-m) - self.beta_m(V)*m  
         dhdt   = self.alpha_h(V)*(1.0-h) - self.beta_h(V)*h       
         dSdt   = (self.Sinf(V) - S)/self.ts(V) 
-        dudt = (1.0/C_m)*(((V -u)*((2*sp.pi*self.r*self.dx)/(self.Ra*self.Ait))) - self.I_t(u, n_t, hk_t, m_t, h_t, S_t, f_Ca, o_0, o_1, o_2, o_3, o_4, Cai_t, ATP, Ko_t, Ki_t, Cao_t))  
+        dudt = (1.0/self.C_m)*(((V -u)*((2*sp.pi*self.r*self.dx)/(self.Ra*self.Ait))) - self.I_t(u, n_t, hk_t, m_t, h_t, S_t, f_Ca, o_0, o_1, o_2, o_3, o_4, Cai_t, ATP, Ko_t, Ki_t, Cao_t))  
 
         dntdt  = self.alpha_n_t(u)*(1.0-n_t) - self.beta_n_t(u)*n_t
         dhktdt = (self.hkinf_t(u) - hk_t)/self.thk_t(u)
         dmtdt  = self.alpha_m_t(u)*(1.0-m_t) - self.beta_m_t(u)*m_t  
         dhtdt  = self.alpha_h_t(u)*(1.0-h_t) - self.beta_h_t(u)*h_t       
         dStdt  = (self.Sinf_t(u) - S_t)/self.ts_t(u) 
-        dc0dt  = -kL*c_0 + kL_m*o_0 - 4*self.kC(u)*c_0 + self.kC_m(u)*c_1       
-        do0dt  = kL*c_0 - kL_m*o_0 - (4*self.kC(u)/fallo)*o_0 + fallo*self.kC_m(u)*o_1
-        dc1dt  = 4*self.kC(u)*c_0 - self.kC_m(u)*c_1 - (kL/fallo)*c_1 + kL_m*fallo*o_1 - 3*self.kC(u)*c_1 + 2*self.kC_m(u)*c_2
-        do1dt  = (kL/fallo)*c_1 - (kL_m*fallo)*o_1 + (4*self.kC(u)/fallo)*o_0 - fallo*self.kC_m(u)*o_1 - (3*self.kC(u)/fallo)*o_1 + (2*fallo)*self.kC_m(u)*o_2
-        dc2dt  = 3*self.kC(u)*c_1 - 2*self.kC_m(u)*c_2 - (kL/(fallo**2))*c_2 + (kL_m*(fallo**2))*o_2 - 2*self.kC(u)*c_2 + 3*self.kC_m(u)*c_3
-        do2dt  = (3*self.kC(u)/fallo)*o_1 - (2*fallo)*self.kC_m(u)*o_2 + (kL/(fallo**2))*c_2 - (kL_m*(fallo**2))*o_2 - (2*self.kC(u)/fallo)*o_2 + (3*fallo)*self.kC_m(u)*o_3
-        dc3dt  = 2*self.kC(u)*c_2 - 3*self.kC_m(u)*c_3 - (kL/(fallo**3))*c_3 + (kL_m*(fallo**3))*o_3 - self.kC(u)*c_3 + 4*self.kC_m(u)*c_4
-        do3dt  = (kL/(fallo**3))*c_3 - (kL_m*(fallo**3))*o_3 + (2*self.kC(u)/fallo)*o_2 - (3*fallo)*self.kC_m(u)*o_3 - (self.kC(u)/fallo)*o_3 + (4*fallo)*self.kC_m(u)*o_4
-        dc4dt  = self.kC(u)*c_3 - 4*self.kC_m(u)*c_4 - (kL/(fallo**4))*c_4 + (kL_m*(fallo**4))*o_4
-        do4dt  = (self.kC(u)/fallo)*o_3 - (4*fallo)*self.kC_m(u)*o_4 + (kL/(fallo**4))*c_4 - (kL_m*(fallo**4))*o_4
+        dc0dt  = -self.kL*c_0 + self.kL_m*o_0 - 4*self.kC(u)*c_0 + self.kC_m(u)*c_1       
+        do0dt  = self.kL*c_0 - self.kL_m*o_0 - (4*self.kC(u)/self.fallo)*o_0 + self.fallo*self.kC_m(u)*o_1
+        dc1dt  = 4*self.kC(u)*c_0 - self.kC_m(u)*c_1 - (self.kL/self.fallo)*c_1 + self.kL_m*self.fallo*o_1 - 3*self.kC(u)*c_1 + 2*self.kC_m(u)*c_2
+        do1dt  = (self.kL/self.fallo)*c_1 - (self.kL_m*self.fallo)*o_1 + (4*self.kC(u)/self.fallo)*o_0 - self.fallo*self.kC_m(u)*o_1 - (3*self.kC(u)/self.fallo)*o_1 + (2*self.fallo)*self.kC_m(u)*o_2
+        dc2dt  = 3*self.kC(u)*c_1 - 2*self.kC_m(u)*c_2 - (self.kL/(self.fallo**2))*c_2 + (self.kL_m*(self.fallo**2))*o_2 - 2*self.kC(u)*c_2 + 3*self.kC_m(u)*c_3
+        do2dt  = (3*self.kC(u)/self.fallo)*o_1 - (2*self.fallo)*self.kC_m(u)*o_2 + (self.kL/(self.fallo**2))*c_2 - (self.kL_m*(self.fallo**2))*o_2 - (2*self.kC(u)/self.fallo)*o_2 + (3*self.fallo)*self.kC_m(u)*o_3
+        dc3dt  = 2*self.kC(u)*c_2 - 3*self.kC_m(u)*c_3 - (self.kL/(self.fallo**3))*c_3 + (self.kL_m*(self.fallo**3))*o_3 - self.kC(u)*c_3 + 4*self.kC_m(u)*c_4
+        do3dt  = (self.kL/(self.fallo**3))*c_3 - (self.kL_m*(self.fallo**3))*o_3 + (2*self.kC(u)/self.fallo)*o_2 - (3*self.fallo)*self.kC_m(u)*o_3 - (self.kC(u)/self.fallo)*o_3 + (4*self.fallo)*self.kC_m(u)*o_4
+        dc4dt  = self.kC(u)*c_3 - 4*self.kC_m(u)*c_4 - (self.kL/(self.fallo**4))*c_4 + (self.kL_m*(self.fallo**4))*o_4
+        do4dt  = (self.kC(u)/self.fallo)*o_3 - (4*self.fallo)*self.kC_m(u)*o_4 + (self.kL/(self.fallo**4))*c_4 - (self.kL_m*(self.fallo**4))*o_4
         dfCadt = (self.fCainf_t(Cai_t) - f_Ca)/(self.tfCa_t(Cai_t))
         
 
@@ -500,10 +461,10 @@ class SingleFiber():
         dPsitdt   = (a1*self.J_ETC_t(NADHm_t, Psi_t) - a2*self.J_F1F0_t(ATPm_t, Psi_t) - self.J_ANT_t(ADP_t, ATP_t, Psi_t, ADPm_t, ATPm_t) - self.J_Hleak_t(Psi_t) - self.J_NCX_t(Cai_t, Cam_t, Psi_t) - 2*self.J_MCU_t(Cai_t, Psi_t) - 2*self.J_mPTP_t(Cam_t, Cai_t, Psi_t, t) - self.J_AGC_t(Cai_t, Cam_t, Psi_t))/C_p
         dPsidt    = (a1*self.J_ETC(NADHm, Psi) - a2*self.J_F1F0(ATPm, Psi) - self.J_ANT(ADP, ATP, Psi, ADPm, ATPm) - self.J_Hleak(Psi) - self.J_NCX(Cai, Cam, Psi) - 2*self.J_MCU(Cai, Psi) - 2*self.J_mPTP(Cam, Cai, Psi, t) - self.J_AGC(Cai, Cam, Psi))/C_p
         
-        dCaotdt = (self.I_Ca_t(o_0, o_1, o_2, o_3, o_4, u, f_Ca, Cai_t, Cao_t)/1000*F*1000*self.Vsr) - (Cao_t - Cao_t)/tCa
-        dKotdt  = (((self.I_KIR_t(u, Ko_t, Ki_t) + self.I_KDR_t(u, n_t, hk_t, Ko_t, Ki_t) -(2*self.I_NaK_t(u, ATP, Ko_t)))/1000*F*1000*self.Vsr) - ((Ko_t - Ko)/tk) - (Ko_t - Ko_t)/tk)
+        dCaotdt = (self.I_Ca_t(o_0, o_1, o_2, o_3, o_4, u, f_Ca, Cai_t, Cao_t)/1000*self.F*1000*self.Vsr) - (Cao_t - Cao_t)/tCa
+        dKotdt  = (((self.I_KIR_t(u, Ko_t, Ki_t) + self.I_KDR_t(u, n_t, hk_t, Ko_t, Ki_t) -(2*self.I_NaK_t(u, ATP, Ko_t)))/1000*self.F*1000*self.Vsr) - ((Ko_t - Ko)/tk) - (Ko_t - Ko_t)/tk)
         dKitdt  = dKotdt*(15.5/25.0)
-        dKodt   = (((self.I_KIR(V, Ko, Ki) + self.I_KDR(V, n, hk, Ko, Ki) - 2*self.I_NaK(u, Ko))/1000*F*1000*self.VsrS)-((Ko - Ko)/tk + (Ko - Ko)/tk + (Ko - Ko_t)/tk))
+        dKodt   = (((self.I_KIR(V, Ko, Ki) + self.I_KDR(V, n, hk, Ko, Ki) - 2*self.I_NaK(u, Ko))/1000*self.F*1000*self.VsrS)-((Ko - Ko)/tk + (Ko - Ko)/tk + (Ko - Ko_t)/tk))
         dKidt   = dKodt*(15.5/25.0)
 
         return dVdt, dndt, dhkdt, dmdt, dhdt, dSdt, dudt, dntdt, dhktdt, dmtdt, dhtdt, dStdt, dc0dt, do0dt, dc1dt, do1dt, dc2dt, do2dt, dc3dt, do3dt, dc4dt, do4dt, dfCadt, dCaitdt, dCaidt, dCaSRtdt, dCaSRdt, dCaCStdt, dCaCSdt, dCaATPtdt, dCaATPdt, dMgATPtdt, dMgATPdt, dMgtdt, dMgdt, dATPtdt, dATPdt, dADPtdt, dADPdt, dCaTdt, dCaCaTdt, dD0dt, dD1dt, dD2dt, dA1dt, dA2dt, dPdt, dPSRdt, dPCSRdt, dCamtdt, dCamdt, dNADHmtdt, dNADHmdt, dADPmtdt, dADPmdt, dATPmtdt, dATPmdt, dPsitdt, dPsidt, dCaotdt, dKotdt, dKitdt, dKodt, dKidt
@@ -511,18 +472,18 @@ class SingleFiber():
     def Main(self):
         
         V_0    = Vrp
-        n_0    = (a_n*(V_0-Vn)/(1-sp.exp(-(V_0-Vn)/Van)))/((a_n*(V_0-Vn)/(1-sp.exp(-(V_0-Vn)/Van))) + (b_n*sp.exp(-(V_0-Vn)/Vbn)))
-        hk_0   = 1/(1+sp.exp((V_0-Vhk)/Ahk))
-        m_0    = (a_m*(V_0-Vm2)/(1-sp.exp(-(V_0-Vm2)/Vam)))/((a_m*(V_0-Vm2)/(1-sp.exp(-(V_0-Vm2)/Vam))) + (b_m*sp.exp(-(V_0-Vm2)/Vbm)))
-        h_0    = (a_h*sp.exp(-(V_0-Vh)/Vah))/((a_h*sp.exp(-(V_0-Vh)/Vah)) + (b_h/(1+sp.exp(-(V_0-Vh)/Vbh))))
-        S_0    = 1.0/(1.0+sp.exp((V_0-Vs)/As))
+        n_0    = (self.a_n*(V_0-self.Vn)/(1-sp.exp(-(V_0-self.Vn)/self.Van)))/((self.a_n*(V_0-self.Vn)/(1-sp.exp(-(V_0-self.Vn)/self.Van))) + (self.b_n*sp.exp(-(V_0-self.Vn)/self.Vbn)))
+        hk_0   = 1/(1+sp.exp((V_0-self.Vhk)/self.Ahk))
+        m_0    = (self.a_m*(V_0-self.Vm2)/(1-sp.exp(-(V_0-self.Vm2)/self.Vam)))/((self.a_m*(V_0-self.Vm2)/(1-sp.exp(-(V_0-self.Vm2)/self.Vam))) + (self.b_m*sp.exp(-(V_0-self.Vm2)/self.Vbm)))
+        h_0    = (self.a_h*sp.exp(-(V_0-self.Vh)/self.Vah))/((self.a_h*sp.exp(-(V_0-self.Vh)/self.Vah)) + (self.b_h/(1+sp.exp(-(V_0-self.Vh)/self.Vbh))))
+        S_0    = 1.0/(1.0+sp.exp((V_0-self.Vs)/self.As))
 
         u_0    = urp
-        n_t_0  = (a_n*(u_0-Vn)/(1-sp.exp(-(u_0-Vn)/Van)))/((a_n*(u_0-Vn)/(1-sp.exp(-(u_0-Vn)/Van))) + (b_n*sp.exp(-(u_0-Vn)/Vbn)))
-        hk_t_0 = 1/(1+sp.exp((u_0-Vhk)/Ahk))
-        m_t_0  = (a_m*(u_0-Vm2)/(1-sp.exp(-(u_0-Vm2)/Vam)))/((a_m*(u_0-Vm2)/(1-sp.exp(-(u_0-Vm2)/Vam))) + (b_m*sp.exp(-(u_0-Vm2)/Vbm)))
-        h_t_0  = (a_h*sp.exp(-(u_0-Vh)/Vah))/((a_h*sp.exp(-(u_0-Vh)/Vah)) + (b_h/(1+sp.exp(-(u_0-Vh)/Vbh))))
-        S_t_0  = 1.0/(1.0+sp.exp((u_0-Vs)/As))
+        n_t_0  = (self.a_n*(u_0-self.Vn)/(1-sp.exp(-(u_0-self.Vn)/self.Van)))/((self.a_n*(u_0-self.Vn)/(1-sp.exp(-(u_0-self.Vn)/self.Van))) + (self.b_n*sp.exp(-(u_0-self.Vn)/self.Vbn)))
+        hk_t_0 = 1/(1+sp.exp((u_0-self.Vhk)/self.Ahk))
+        m_t_0  = (self.a_m*(u_0-self.Vm2)/(1-sp.exp(-(u_0-self.Vm2)/self.Vam)))/((self.a_m*(u_0-self.Vm2)/(1-sp.exp(-(u_0-self.Vm2)/self.Vam))) + (self.b_m*sp.exp(-(u_0-self.Vm2)/self.Vbm)))
+        h_t_0  = (self.a_h*sp.exp(-(u_0-self.Vh)/self.Vah))/((self.a_h*sp.exp(-(u_0-self.Vh)/self.Vah)) + (self.b_h/(1+sp.exp(-(u_0-self.Vh)/self.Vbh))))
+        S_t_0  = 1.0/(1.0+sp.exp((u_0-self.Vs)/self.As))
         c_0_0  = 1.0
         o_0_0  = 0.0
         c_1_0  = 0.0
@@ -533,7 +494,7 @@ class SingleFiber():
         o_3_0  = 0.0
         c_4_0  = 0.0
         o_4_0  = 0.0
-        f_Ca_0 = 1/(1 + (a_fCa/K_fCa))
+        f_Ca_0 = 1/(1 + (self.a_fCa/self.K_fCa))
 
         Cai_t_0   = 0.1
         Cai_0     = 0.1

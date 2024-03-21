@@ -23,12 +23,14 @@ import pylab as plt
 from scipy.integrate import odeint
 import scipy.io as io
 
+from geometrical_cell_properties import muscle_fiber, half_sarcomere
+
 class SingleFiber():
         
     # Define Global Variables
-    global duration, dt, r, dx, Ait
-    global Vrp, urp, V_t, Vm_t, Vm, Vsr_t, Vsr, V_m, VsrS
-    global C_m, F, R, T, Ra, mr, tk, tCa
+    global duration, dt
+    global Vrp, urp
+    global C_m, F, R, T, mr, tk, tCa
     global g_K, g_Kir, g_Na, g_Cl, g_NaK, g_K_t, g_Kir_t, g_Na_t, g_Cl_t, g_NaK_t, g_Ca_t
     global ko, ki, Nao, Nai, Clo, Cli, ko_t, ki_t, Nao_t, Nai_t, Clo_t, Cli_t 
     global E_Na, E_Cl, E_Na_t, E_Cl_t   
@@ -64,32 +66,9 @@ class SingleFiber():
     T     = 273+37.0
 
     # Muscle Fiber Geometry
-    dx    = 100.0*(10**-4)
-    r     = 20.0*(10**-4)
-    Vsr   = 1.0*(10**-6)
-    VsrS  = 4.1*(10**-6)                                                       # volume-surface ratio sarcolemma
-    p     = 0.003
-    ot    = 0.34
-    Gl    = 3.7*p*ot
-    Ra    = 0.150
-    Ri    = 0.125
-    Vol   = sp.pi*dx*(r**2)
-    Ait   = p*Vol/Vsr
-    gl    = (2.0*sp.pi*r*dx*Gl)/(r/20.0)
-    b     = gl/Ait
-    
+    dx, r, Vsr, VsrS, p, ot, Gl, Ra, Ri, Vol, Ait, gl, b = muscle_fiber()
     # Half-Sarcomere Geometry
-    Lx     = 1.1                                                               # um sarcomere length (z-line to m-line)
-    RR     = 0.5                                                               # um myofibre radius
-    V0     = 0.791*(Lx*sp.pi*(RR**2))                                          # um^3 Total myoplasmic volume
-    VsrM   = 0.159*(Lx*sp.pi*(RR**2))                                          # um^3 Total mitochondrial myoplasmic volume
-    VsrC   = 0.05*(Lx*sp.pi*(RR**2))                                           # um^3 SR Volume
-    V_t    = 0.01*V0    #V_TM                                                  # um^3 TSR Volume     
-    V_m    = 0.99*V0    #V_M                                                   # um^3 Myoplasm less TSR less Mitochondria Volume
-    Vm_t   = 0.01*VsrM  #V_TMC                                                 # um^3 TSR Volume     
-    Vm     = 0.99*VsrM  #V_MC 
-    Vsr_t  = 0.01*VsrC  #V_TSR                                                 # um^3 TSR SR Volume 
-    Vsr    = 0.99*VsrC  #V_SR                                                  # um^3 SR less TSR Volume
+    Lx, RR, V0, VsrM, VsrC, V_t, V_m, Vm_t, Vm, Vsr_t, Vsr = half_sarcomere()
 
     # Ion Channel Conductances (Sarcolemma)
     g_K   = 21.6
@@ -382,7 +361,7 @@ class SingleFiber():
     def I_t(self, u, n_t, hk_t, m_t, h_t, S_t, f_Ca, o_0, o_1, o_2, o_3, o_4, Cai_t, ATP, Ko_t, Ki_t, Cao_t):
         return self.I_KDR_t(u, n_t, hk_t, Ko_t, Ki_t) + self.I_KIR_t(u, Ko_t, Ki_t) + self.I_Na_t(u, m_t, h_t, S_t) + self.I_Cl_t(u) + self.I_NaK_t(u, ATP, Ko_t) + self.I_Ca_t(o_0, o_1, o_2, o_3, o_4, u, f_Ca, Cai_t, Cao_t)    
     def I_trans(self,V,u):
-        return (V-u)/Ra
+        return (V-u)/self.Ra
 
     # Calcium Dynamics (Myoplasm)
     def J_RyR(self, o_0, o_1, o_2, o_3, o_4, f_Ca, CaSR_t, Cai_t):            
@@ -475,7 +454,7 @@ class SingleFiber():
         dmdt   = self.alpha_m(V)*(1.0-m) - self.beta_m(V)*m  
         dhdt   = self.alpha_h(V)*(1.0-h) - self.beta_h(V)*h       
         dSdt   = (self.Sinf(V) - S)/self.ts(V) 
-        dudt = (1.0/C_m)*(((V -u)*((2*sp.pi*r*dx)/(Ra*Ait))) - self.I_t(u, n_t, hk_t, m_t, h_t, S_t, f_Ca, o_0, o_1, o_2, o_3, o_4, Cai_t, ATP, Ko_t, Ki_t, Cao_t))  
+        dudt = (1.0/C_m)*(((V -u)*((2*sp.pi*self.r*self.dx)/(self.Ra*self.Ait))) - self.I_t(u, n_t, hk_t, m_t, h_t, S_t, f_Ca, o_0, o_1, o_2, o_3, o_4, Cai_t, ATP, Ko_t, Ki_t, Cao_t))  
 
         dntdt  = self.alpha_n_t(u)*(1.0-n_t) - self.beta_n_t(u)*n_t
         dhktdt = (self.hkinf_t(u) - hk_t)/self.thk_t(u)
@@ -495,25 +474,25 @@ class SingleFiber():
         dfCadt = (self.fCainf_t(Cai_t) - f_Ca)/(self.tfCa_t(Cai_t))
         
 
-        dCaitdt   = f_c*(-self.J_MCU_t(Cai_t, Psi_t)/V_t + self.J_NCX_t(Cai_t, Cam_t, Psi_t)/V_t - self.J_mPTP_t(Cam_t, Cai_t, Psi_t, t)/V_t) + self.I_Ca_t(o_0, o_1, o_2, o_3, o_4, u, f_Ca, Cai_t, Cao_t)/V_t + self.J_RyR(o_0, o_1, o_2, o_3, o_4, f_Ca, CaSR_t, Cai_t)/V_t + (Le*(CaSR_t - Cai_t))/V_t - self.J_SERCA_t(Cai_t, ATP_t)/V_t - (kCatpon*Cai_t)*ATP_t + kCatpoff*CaATP_t - tR*(Cai_t - Cai)/V_t
-        dCaidt    = f_c*(-self.J_MCU(Cai, Psi)/V_m + self.J_NCX(Cai, Cam, Psi)/V_m - self.J_mPTP(Cam, Cai, Psi, t)/V_m) + (Le*(CaSR-Cai))/V_m - self.J_SERCA(Cai, ATP)/V_m + tR*(Cai_t - Cai)/V_m - (kCatpon*Cai)*ATP + kCatpoff*CaATP - kTon*Cai*self.T0(CaT, CaCaT, D0, D1, D2, A1, A2) + kToff*CaT - kTon*Cai*CaT + kToff*CaCaT - kTon*Cai*D0 + kToff*D1 - kTon*Cai*D1 + kToff*D2                        
-        dCaSRtdt  = -self.J_RyR(o_0, o_1, o_2, o_3, o_4, f_Ca, CaSR_t, Cai_t)/Vsr_t + self.J_SERCA_t(Cai_t, ATP_t)/Vsr_t - Le*(CaSR_t - Cai_t)/Vsr_t - (kCson*CaSR_t)*(Cstot - CaCS_t) + kCsoff*CaCS_t - tSR*(CaSR_t - CaSR)/Vsr_t
+        dCaitdt   = f_c*(-self.J_MCU_t(Cai_t, Psi_t)/self.V_t + self.J_NCX_t(Cai_t, Cam_t, Psi_t)/self.V_t - self.J_mPTP_t(Cam_t, Cai_t, Psi_t, t)/self.V_t) + self.I_Ca_t(o_0, o_1, o_2, o_3, o_4, u, f_Ca, Cai_t, Cao_t)/self.V_t + self.J_RyR(o_0, o_1, o_2, o_3, o_4, f_Ca, CaSR_t, Cai_t)/self.V_t + (Le*(CaSR_t - Cai_t))/self.V_t - self.J_SERCA_t(Cai_t, ATP_t)/self.V_t - (kCatpon*Cai_t)*ATP_t + kCatpoff*CaATP_t - tR*(Cai_t - Cai)/self.V_t
+        dCaidt    = f_c*(-self.J_MCU(Cai, Psi)/self.V_m + self.J_NCX(Cai, Cam, Psi)/self.V_m - self.J_mPTP(Cam, Cai, Psi, t)/self.V_m) + (Le*(CaSR-Cai))/self.V_m - self.J_SERCA(Cai, ATP)/self.V_m + tR*(Cai_t - Cai)/self.V_m - (kCatpon*Cai)*ATP + kCatpoff*CaATP - kTon*Cai*self.T0(CaT, CaCaT, D0, D1, D2, A1, A2) + kToff*CaT - kTon*Cai*CaT + kToff*CaCaT - kTon*Cai*D0 + kToff*D1 - kTon*Cai*D1 + kToff*D2                        
+        dCaSRtdt  = -self.J_RyR(o_0, o_1, o_2, o_3, o_4, f_Ca, CaSR_t, Cai_t)/self.Vsr_t + self.J_SERCA_t(Cai_t, ATP_t)/self.Vsr_t - Le*(CaSR_t - Cai_t)/self.Vsr_t - (kCson*CaSR_t)*(Cstot - CaCS_t) + kCsoff*CaCS_t - tSR*(CaSR_t - CaSR)/self.Vsr_t
         if PSR*0.001*CaSR >= PP: 
-            dCaSRdt = self.J_SERCA(Cai, ATP)/Vsr - Le*(CaSR - Cai)/Vsr + tSR*(CaSR_t - CaSR)/Vsr - ((kCson*CaSR)*(Cstot - CaCS) - kCsoff*CaCS) - 1000*(Ap*(PSR*0.001*CaSR - PP)*0.001*PSR*CaSR)
+            dCaSRdt = self.J_SERCA(Cai, ATP)/self.Vsr - Le*(CaSR - Cai)/self.Vsr + tSR*(CaSR_t - CaSR)/self.Vsr - ((kCson*CaSR)*(Cstot - CaCS) - kCsoff*CaCS) - 1000*(Ap*(PSR*0.001*CaSR - PP)*0.001*PSR*CaSR)
         else:
-            dCaSRdt = self.J_SERCA(Cai, ATP)/Vsr - Le*(CaSR - Cai)/Vsr + tSR*(CaSR_t - CaSR)/Vsr - ((kCson*CaSR)*(Cstot - CaCS) - kCsoff*CaCS) - 1000*(-Bp*PCSR*(PP -  PSR*0.001*CaSR))            
+            dCaSRdt = self.J_SERCA(Cai, ATP)/self.Vsr - Le*(CaSR - Cai)/self.Vsr + tSR*(CaSR_t - CaSR)/self.Vsr - ((kCson*CaSR)*(Cstot - CaCS) - kCsoff*CaCS) - 1000*(-Bp*PCSR*(PP -  PSR*0.001*CaSR))            
         dCaCStdt  = (kCson*CaSR_t)*(Cstot - CaCS_t) - kCsoff*CaCS_t
         dCaCSdt   = (kCson*CaSR)*(Cstot - CaCS) - kCsoff*CaCS
-        dCaATPtdt = (kCatpon*Cai_t)*ATP_t - kCatpoff*CaATP_t - tATP*((CaATP_t - CaATP))/V_t
-        dCaATPdt  = (kCatpon*Cai)*ATP - kCatpoff*CaATP + tATP*((CaATP_t - CaATP))/V_m
-        dMgATPtdt = (kMatpon*Mg_t)*ATP_t - kMatpoff*MgATP_t - tATP*((MgATP_t - MgATP))/V_t
-        dMgATPdt  = (kMatpon*Mg)*ATP - kMatpoff*MgATP + tATP*((MgATP_t - MgATP))/V_m
-        dMgtdt    = -kMatpon*Mg_t*ATP_t + kMatpoff*MgATP_t - tMg*((Mg_t - Mg))/V_t
-        dMgdt     = -kMatpon*Mg*ATP + kMatpoff*MgATP + tMg*((Mg_t - Mg))/V_m
-        dATPtdt   = self.J_ANT_t(ADP_t, ATP_t, Psi_t, ADPm_t, ATPm_t)/V_t - self.J_HYD_t(ATP_t, Cai_t)/V_t - kCatpon*Cai_t*ATP_t + kCatpoff*CaATP_t - kMatpon*Mg_t*ATP_t + kMatpoff*MgATP_t - tATP*((ATP_t - ATP))/V_t
-        dATPdt    = self.J_ANT(ADP, ATP, Psi, ADPm, ATPm)/V_m - self.J_HYD(u, ATP, Cai, Ko_t)/V_m - kCatpon*Cai*ATP + kCatpoff*CaATP - kMatpon*Mg*ATP + kMatpoff*MgATP + tATP*((ATP_t - ATP))/V_m              
-        dADPtdt   = self.J_HYD_t(ATP_t, Cai_t)/V_t - (Vm_t/V_t)*self.J_ANT_t(ADP_t, ATP_t, Psi_t, ADPm_t, ATPm_t)/V_t - tATP*((ADP_t - ADP))/V_t
-        dADPdt    = self.J_HYD(u, ATP, Cai, Ko_t)/V_m - (Vm/V_m)*self.J_ANT(ADP, ATP, Psi, ADPm, ATPm)/V_m + tATP*((ADP_t - ADP))/V_m  
+        dCaATPtdt = (kCatpon*Cai_t)*ATP_t - kCatpoff*CaATP_t - tATP*((CaATP_t - CaATP))/self.V_t
+        dCaATPdt  = (kCatpon*Cai)*ATP - kCatpoff*CaATP + tATP*((CaATP_t - CaATP))/self.V_m
+        dMgATPtdt = (kMatpon*Mg_t)*ATP_t - kMatpoff*MgATP_t - tATP*((MgATP_t - MgATP))/self.V_t
+        dMgATPdt  = (kMatpon*Mg)*ATP - kMatpoff*MgATP + tATP*((MgATP_t - MgATP))/self.V_m
+        dMgtdt    = -kMatpon*Mg_t*ATP_t + kMatpoff*MgATP_t - tMg*((Mg_t - Mg))/self.V_t
+        dMgdt     = -kMatpon*Mg*ATP + kMatpoff*MgATP + tMg*((Mg_t - Mg))/self.V_m
+        dATPtdt   = self.J_ANT_t(ADP_t, ATP_t, Psi_t, ADPm_t, ATPm_t)/self.V_t - self.J_HYD_t(ATP_t, Cai_t)/self.V_t - kCatpon*Cai_t*ATP_t + kCatpoff*CaATP_t - kMatpon*Mg_t*ATP_t + kMatpoff*MgATP_t - tATP*((ATP_t - ATP))/self.V_t
+        dATPdt    = self.J_ANT(ADP, ATP, Psi, ADPm, ATPm)/self.V_m - self.J_HYD(u, ATP, Cai, Ko_t)/self.V_m - kCatpon*Cai*ATP + kCatpoff*CaATP - kMatpon*Mg*ATP + kMatpoff*MgATP + tATP*((ATP_t - ATP))/self.V_m              
+        dADPtdt   = self.J_HYD_t(ATP_t, Cai_t)/self.V_t - (self.Vm_t/self.V_t)*self.J_ANT_t(ADP_t, ATP_t, Psi_t, ADPm_t, ATPm_t)/self.V_t - tATP*((ADP_t - ADP))/self.V_t
+        dADPdt    = self.J_HYD(u, ATP, Cai, Ko_t)/self.V_m - (self.Vm/self.V_m)*self.J_ANT(ADP, ATP, Psi, ADPm, ATPm)/self.V_m + tATP*((ADP_t - ADP))/self.V_m  
         dCaTdt    = (kTon*Cai)*self.T0(CaT, CaCaT, D0, D1, D2, A1, A2) - kToff*CaT - (kTon*Cai)*CaT + kToff*CaCaT - k0on*CaT + k0off*D1           
         dCaCaTdt  = (kTon*Cai)*CaT - kToff*CaCaT - kCaon*CaCaT + kCaoff*D2   
         dD0dt     = (-kTon*Cai)*D0 + kToff*D1 + k0on*self.T0(CaT, CaCaT, D0, D1, D2, A1, A2) - k0off*D0
@@ -521,29 +500,29 @@ class SingleFiber():
         dD2dt     = (kTon*Cai)*D1 - kToff*D2 + kCaon*CaCaT - kCaoff*D2 - f0*D2 + fp*A1 + g0*A2  
         dA1dt     = f0*D2 - fp*A1 + hp*A2 - h0*A1
         dA2dt     = -hp*A2 + h0*A1 - g0*A2  
-        dPdt      = 0.001*(self.J_HYD(u, ATP, Cai, Ko_t)/V_m) + 0.001*(h0*A1 - hp*A2) - bbp*P - kp*(P - PSR)/V_m   
+        dPdt      = 0.001*(self.J_HYD(u, ATP, Cai, Ko_t)/self.V_m) + 0.001*(h0*A1 - hp*A2) - bbp*P - kp*(P - PSR)/self.V_m   
         if PSR*0.001*CaSR >= PP:
-            dPSRdt  = kp*(P - PSR)/Vsr - Ap*(PSR*0.001*CaSR - PP)*(0.001*PSR*CaSR)
+            dPSRdt  = kp*(P - PSR)/self.Vsr - Ap*(PSR*0.001*CaSR - PP)*(0.001*PSR*CaSR)
             dPCSRdt = Ap*(PSR*0.001*CaSR - PP)*(0.001*PSR*CaSR)
         else:
-            dPSRdt  = kp*(P - PSR)/Vsr + Bp*PCSR*(PP - PSR*0.001*CaSR)
+            dPSRdt  = kp*(P - PSR)/self.Vsr + Bp*PCSR*(PP - PSR*0.001*CaSR)
             dPCSRdt = -Bp*PCSR*(PP - PSR*0.001*CaSR)
         
-        dCamtdt   = f_m*(self.J_MCU_t(Cai_t, Psi_t)/Vm_t - self.J_NCX_t(Cai_t, Cam_t, Psi_t)/Vm_t + self.J_mPTP_t(Cam_t, Cai_t, Psi_t, t)/Vm_t)
-        dCamdt    = f_m*(self.J_MCU(Cai, Psi)/Vm - self.J_NCX(Cai, Cam, Psi)/Vm + self.J_mPTP(Cam, Cai, Psi, t)/Vm)
-        dNADHmtdt = self.J_PDH_t(NADHm_t, Cam_t)/Vm_t - self.J_ETC_t(NADHm_t, Psi_t)/Vm_t + self.J_AGC_t(Cai_t, Cam_t, Psi_t)/Vm_t
-        dNADHmdt  = self.J_PDH(NADHm, Cam)/Vm - self.J_ETC(NADHm, Psi)/Vm + self.J_AGC(Cai, Cam, Psi)/Vm
-        dADPmtdt  = self.J_ANT_t(ADP_t, ATP_t, Psi_t, ADPm_t, ATPm_t)/Vm_t - self.J_F1F0_t(ATPm_t, Psi_t)/Vm_t
-        dADPmdt   = self.J_ANT(ADP, ATP, Psi, ADPm, ATPm)/Vm - self.J_F1F0(ATPm, Psi)/Vm
-        dATPmtdt  = self.J_F1F0_t(ATPm_t, Psi_t)/Vm_t - self.J_ANT_t(ADP_t, ATP_t, Psi_t, ADPm_t, ATPm_t)/Vm_t
-        dATPmdt   = self.J_F1F0(ATPm, Psi)/Vm - self.J_ANT(ADP, ATP, Psi, ADPm, ATPm)/Vm
+        dCamtdt   = f_m*(self.J_MCU_t(Cai_t, Psi_t)/self.Vm_t - self.J_NCX_t(Cai_t, Cam_t, Psi_t)/self.Vm_t + self.J_mPTP_t(Cam_t, Cai_t, Psi_t, t)/self.Vm_t)
+        dCamdt    = f_m*(self.J_MCU(Cai, Psi)/self.Vm - self.J_NCX(Cai, Cam, Psi)/self.Vm + self.J_mPTP(Cam, Cai, Psi, t)/self.Vm)
+        dNADHmtdt = self.J_PDH_t(NADHm_t, Cam_t)/self.Vm_t - self.J_ETC_t(NADHm_t, Psi_t)/self.Vm_t + self.J_AGC_t(Cai_t, Cam_t, Psi_t)/self.Vm_t
+        dNADHmdt  = self.J_PDH(NADHm, Cam)/self.Vm - self.J_ETC(NADHm, Psi)/self.Vm + self.J_AGC(Cai, Cam, Psi)/self.Vm
+        dADPmtdt  = self.J_ANT_t(ADP_t, ATP_t, Psi_t, ADPm_t, ATPm_t)/self.Vm_t - self.J_F1F0_t(ATPm_t, Psi_t)/self.Vm_t
+        dADPmdt   = self.J_ANT(ADP, ATP, Psi, ADPm, ATPm)/self.Vm - self.J_F1F0(ATPm, Psi)/self.Vm
+        dATPmtdt  = self.J_F1F0_t(ATPm_t, Psi_t)/self.Vm_t - self.J_ANT_t(ADP_t, ATP_t, Psi_t, ADPm_t, ATPm_t)/self.Vm_t
+        dATPmdt   = self.J_F1F0(ATPm, Psi)/self.Vm - self.J_ANT(ADP, ATP, Psi, ADPm, ATPm)/self.Vm
         dPsitdt   = (a1*self.J_ETC_t(NADHm_t, Psi_t) - a2*self.J_F1F0_t(ATPm_t, Psi_t) - self.J_ANT_t(ADP_t, ATP_t, Psi_t, ADPm_t, ATPm_t) - self.J_Hleak_t(Psi_t) - self.J_NCX_t(Cai_t, Cam_t, Psi_t) - 2*self.J_MCU_t(Cai_t, Psi_t) - 2*self.J_mPTP_t(Cam_t, Cai_t, Psi_t, t) - self.J_AGC_t(Cai_t, Cam_t, Psi_t))/C_p
         dPsidt    = (a1*self.J_ETC(NADHm, Psi) - a2*self.J_F1F0(ATPm, Psi) - self.J_ANT(ADP, ATP, Psi, ADPm, ATPm) - self.J_Hleak(Psi) - self.J_NCX(Cai, Cam, Psi) - 2*self.J_MCU(Cai, Psi) - 2*self.J_mPTP(Cam, Cai, Psi, t) - self.J_AGC(Cai, Cam, Psi))/C_p
         
-        dCaotdt = (self.I_Ca_t(o_0, o_1, o_2, o_3, o_4, u, f_Ca, Cai_t, Cao_t)/1000*F*1000*Vsr) - (Cao_t - Cao_t)/tCa
-        dKotdt  = (((self.I_KIR_t(u, Ko_t, Ki_t) + self.I_KDR_t(u, n_t, hk_t, Ko_t, Ki_t) -(2*self.I_NaK_t(u, ATP, Ko_t)))/1000*F*1000*Vsr) - ((Ko_t - Ko)/tk) - (Ko_t - Ko_t)/tk)
+        dCaotdt = (self.I_Ca_t(o_0, o_1, o_2, o_3, o_4, u, f_Ca, Cai_t, Cao_t)/1000*F*1000*self.Vsr) - (Cao_t - Cao_t)/tCa
+        dKotdt  = (((self.I_KIR_t(u, Ko_t, Ki_t) + self.I_KDR_t(u, n_t, hk_t, Ko_t, Ki_t) -(2*self.I_NaK_t(u, ATP, Ko_t)))/1000*F*1000*self.Vsr) - ((Ko_t - Ko)/tk) - (Ko_t - Ko_t)/tk)
         dKitdt  = dKotdt*(15.5/25.0)
-        dKodt   = (((self.I_KIR(V, Ko, Ki) + self.I_KDR(V, n, hk, Ko, Ki) - 2*self.I_NaK(u, Ko))/1000*F*1000*VsrS)-((Ko - Ko)/tk + (Ko - Ko)/tk + (Ko - Ko_t)/tk))
+        dKodt   = (((self.I_KIR(V, Ko, Ki) + self.I_KDR(V, n, hk, Ko, Ki) - 2*self.I_NaK(u, Ko))/1000*F*1000*self.VsrS)-((Ko - Ko)/tk + (Ko - Ko)/tk + (Ko - Ko_t)/tk))
         dKidt   = dKodt*(15.5/25.0)
 
         return dVdt, dndt, dhkdt, dmdt, dhdt, dSdt, dudt, dntdt, dhktdt, dmtdt, dhtdt, dStdt, dc0dt, do0dt, dc1dt, do1dt, dc2dt, do2dt, dc3dt, do3dt, dc4dt, do4dt, dfCadt, dCaitdt, dCaidt, dCaSRtdt, dCaSRdt, dCaCStdt, dCaCSdt, dCaATPtdt, dCaATPdt, dMgATPtdt, dMgATPdt, dMgtdt, dMgdt, dATPtdt, dATPdt, dADPtdt, dADPdt, dCaTdt, dCaCaTdt, dD0dt, dD1dt, dD2dt, dA1dt, dA2dt, dPdt, dPSRdt, dPCSRdt, dCamtdt, dCamdt, dNADHmtdt, dNADHmdt, dADPmtdt, dADPmdt, dATPmtdt, dATPmdt, dPsitdt, dPsidt, dCaotdt, dKotdt, dKitdt, dKodt, dKidt

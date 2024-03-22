@@ -26,6 +26,7 @@ import scipy.io as io
 from anatomical_parameters import muscle_fiber, half_sarcomere
 from conductance_parameters import conductance_potential, sarcolemma_conductances, tubular_conductances
 from rate_parameters import voltage_channel_rates, voltage_calcium_channel_rates
+from contraction_parameters import diffusion_constants, binding_sites, rate_constants_catrp, rate_constants_xbcyc
 
 class SingleFiber():
         
@@ -36,12 +37,10 @@ class SingleFiber():
     global ko, ki, Nao, Nai, Clo, Cli, ko_t, ki_t, Nao_t, Nai_t, Clo_t, Cli_t 
     global E_Na, E_Cl, E_Na_t, E_Cl_t   
     global Gkir, I_nak, f_nak, Gkir_t, I_nak_t, f_nak_t
-    global Cao_t, Le, vusr, tR, tSR, Kcsr, kPon, kPoff, Ptot, kMgon, kMgoff  
-    global kCatpon, kCatpoff, kTon, kToff, kCson, kCsoff, Cstot, Ttot, PP, Ap, Bp, tATP, kMatpon, kMatpoff, tMg
-    global k0on, k0off, kCaon, kCaoff, f0, hp, h0, fp, g0, bbp, kp
+    global Cao_t
     global f_c, f_m, V_MCU, V_NCX, k_mPTP, V_ANT, V_F1F0, V_AGC, k_HYD, k_GLY, k_ETC, K_AGC, q_6, q_8, a1, a2, q_9, q_10
     global K_1, K_2, L, nA, q_7, Cam_thresh, p_3, KATP, theta, K_h, q_1, NADm_tot, q_2, q_3, q_4, q_5, p_4, C_p
-    global alpha_c, alpham_m, n_S, Kasr
+    global alpha_c, alpham_m
 
     # Simulation Parameters
     dt       = 0.001
@@ -72,56 +71,25 @@ class SingleFiber():
     a_n, Van, Vn, b_n, Vbn, Vhk, Ahk, Kk, Ks, Si, sigma, a_m, Vm2, Vam, b_m, Vbm, a_h, Vh, Vah, b_h, Vbh, Vs, As, Va, Aa, Kmk, KmNa, Kank = voltage_channel_rates()
     # Voltage-Dependent and Calcium-Dependent Ion Channel Rate Parameters 
     K_fCa, a_fCa, alpha, K_RyR, Vbar, kL, kL_m, fallo, i2 = voltage_calcium_channel_rates()
+    # Diffusion Constants
+    tR, tSR, tCa, tATP, tMg = diffusion_constants()
+    # Binding Sites
+    Cstot, Ttot, Ptot = binding_sites()
+    # Rate Constants - Calcium Transport
+    Le, kCson, kCsoff, vusr, Kcsr, n_S, Kasr, kCatpon, kCatpoff, kMatpon, kMatpoff, kTon, kToff = rate_constants_catrp()
+    # Rate Constants - Crossbridge Cycling
+    k0on, k0off, kCaon, kCaoff, f0, fp, h0, hp, g0, bbp, kp, Ap, Bp, PP = rate_constants_xbcyc()
 
-   # Ion Concentrations and Nernst Potentials (Sarcolemma)
+    # Ion Concentrations and Nernst Potentials (Sarcolemma)
     E_Na  = ((R*T)/F)*sp.log(Nao/Nai)
     E_Cl  = -((T*T)/F)*sp.log(Clo/Cli)
-    
     # Ion Concentrations and Nernst Potentials (Tubular System)
     E_Na_t  = ((R*T)/F)*sp.log(Nao_t/Nai_t)
     E_Cl_t  = -((R*T)/F)*sp.log(Clo_t/Cli_t)
-
-   # Calcium Transport and XB Dynamics Parameters
-    Le       = 0.00004                                                         # uM/ms*um^3 SR Ca leak constant
-    kCson    = 0.000004                                                        # /uM*ms Rate of SR Ca binding from Calsequestrin
-    kCsoff   = 0.005                                                           # /ms Rate of SR Ca dissociation from Calsequestrin
-    Cstot    = 31000.0                                                         # uM Total 
-    vusr     = 2.4375                                                          # uM/ms* um^3 Rate constant of the SERCA pump
-    Kcsr     = 0.27                                                            # uM Dissociation constant of Ca from SERCA
-    n_S      = 1.7                                                             # SERCA Hill Coefficient 
-    Kasr     = 0.02*799.6                                                      # ATP Dependence Lytton Scaled to IC of ATP
-    kCatpon  = 0.15                                                            # /uM*ms Rate of Ca binding to ATP
-    kCatpoff = 30.0                                                            # /ms Rate of Ca dissociation from ATP
-    kMatpon  = 0.0015                                                          # /uMms Rate of Mg binding to ATP
-    kMatpoff = 0.15                                                            # /ms Rate of Mg dissociation from ATP
-    tR       = 0.75                                                            # um^3/ms Intercompartment Ca diffusion parameter
-    tSR      = tR                                                              # um^3/ms Intercompartment Ca diffusion parameter
-    tCa      = tR                                                              # um^3/ms Intercompartment Ca diffusion parameter
-    tATP     = 0.375                                                           # um^3/ms intercompartmental ATP diffusion parameter 
-    tMg      = 1.5                                                             # um^3/ms intercompartmental Mg diffusion parameter
-    Ttot     = 140.0                                                           # uM Total [T] Binding Sites 
-    kTon     = 0.04425                                                         # /uMms Rate of Ca binding to Troponin
-    kToff    = 0.115                                                           # /ms Rate of Ca dissociation from Troponin
-    k0on     = 0.0                                                             # /ms RU activation rate without two Ca bound
-    k0off    = 0.15                                                            # /ms RU deactivation raplotte without two Ca bound
-    kCaon    = 0.15                                                            # /ms RU activation rate with two Ca bound
-    kCaoff   = 0.05                                                            # /ms RU deactivation rate with two Ca bound
-    f0       = 0.5                                                             # /ms Rate of XB attachment
-    fp       = 5.0                                                             # /ms Rate of pre-power stroke XB detachment
-    h0       = 0.08                                                            # /ms Forward rate of the power stroke
-    hp       = 0.06                                                            # /ms Reverse rate of power stroke
-    g0       = 0.04                                                            # /ms Rate of post-power stroke XB detachment
-    bbp      = 0.00000394                                                      # /ms Rate of myoplasmic phosphate degradation
-    kp       = 0.00000362                                                      # um^3/ms Rate of transport of myoplasmic phosphate into the SR
-    Ap       = 1.0                                                             # mM^2/ms Rate of phosphate precipitation
-    Bp       = 0.0001                                                          # mM/ms Rate of phosphate precipitate solubilization
-    PP       = 6.0                                                             # mM^2 phosphate solubility product
-    Ptot     = 1500.0                                                          # uM Total [P] Binding Sites
-
     # Diffusion Time Constants
     tk = 559.0
     tCa = tR
-    
+
     # General Mitochondria Parameters
     C_p      = 1.8                                                             # uM/mV Mitochondrial inner membrane capacitance divided by F
     a1       = 120.0                                                           # scaling factor between NADH consumption and change in membrane voltage
@@ -302,10 +270,10 @@ class SingleFiber():
         J_RYR = ((o_0 + o_1 + o_2 + o_3 + o_4)*f_Ca)*(CaSR_t - Cai_t)  
         return J_RYR 
     def J_SERCA_t(self, Cai_t, ATP_t):
-        J_SERCA_t = vusr*((Cai_t**n_S)/(Kcsr + (Cai_t**n_S)))*(ATP_t/(Kasr + ATP_t))
+        J_SERCA_t = self.vusr*((Cai_t**self.n_S)/(self.Kcsr + (Cai_t**self.n_S)))*(ATP_t/(self.Kasr + ATP_t))
         return J_SERCA_t
     def J_SERCA(self, Cai, ATP):
-        J_SERCA = vusr*((Cai**n_S)/(Kcsr + (Cai**n_S)))*(ATP/(Kasr + ATP))  
+        J_SERCA = self.vusr*((Cai**self.n_S)/(self.Kcsr + (Cai**self.n_S)))*(ATP/(self.Kasr + ATP))  
         return J_SERCA
     
     # Calcium Dynamics (Mitochondria)    
@@ -332,7 +300,7 @@ class SingleFiber():
     
     # Conservation Equations
     def T0(self, CaT, CaCaT, D0, D1, D2, A1, A2):
-        return Ttot - CaT - CaCaT - D0 - D1 - D2 - A1 - A2
+        return self.Ttot - CaT - CaCaT - D0 - D1 - D2 - A1 - A2
     def NADm_t(self, NADHm_t):
         return NADm_tot - NADHm_t
     def NADm(self, NADHm):
@@ -408,39 +376,39 @@ class SingleFiber():
         dfCadt = (self.fCainf_t(Cai_t) - f_Ca)/(self.tfCa_t(Cai_t))
         
 
-        dCaitdt   = f_c*(-self.J_MCU_t(Cai_t, Psi_t)/self.V_t + self.J_NCX_t(Cai_t, Cam_t, Psi_t)/self.V_t - self.J_mPTP_t(Cam_t, Cai_t, Psi_t, t)/self.V_t) + self.I_Ca_t(o_0, o_1, o_2, o_3, o_4, u, f_Ca, Cai_t, Cao_t)/self.V_t + self.J_RyR(o_0, o_1, o_2, o_3, o_4, f_Ca, CaSR_t, Cai_t)/self.V_t + (Le*(CaSR_t - Cai_t))/self.V_t - self.J_SERCA_t(Cai_t, ATP_t)/self.V_t - (kCatpon*Cai_t)*ATP_t + kCatpoff*CaATP_t - tR*(Cai_t - Cai)/self.V_t
-        dCaidt    = f_c*(-self.J_MCU(Cai, Psi)/self.V_m + self.J_NCX(Cai, Cam, Psi)/self.V_m - self.J_mPTP(Cam, Cai, Psi, t)/self.V_m) + (Le*(CaSR-Cai))/self.V_m - self.J_SERCA(Cai, ATP)/self.V_m + tR*(Cai_t - Cai)/self.V_m - (kCatpon*Cai)*ATP + kCatpoff*CaATP - kTon*Cai*self.T0(CaT, CaCaT, D0, D1, D2, A1, A2) + kToff*CaT - kTon*Cai*CaT + kToff*CaCaT - kTon*Cai*D0 + kToff*D1 - kTon*Cai*D1 + kToff*D2                        
-        dCaSRtdt  = -self.J_RyR(o_0, o_1, o_2, o_3, o_4, f_Ca, CaSR_t, Cai_t)/self.Vsr_t + self.J_SERCA_t(Cai_t, ATP_t)/self.Vsr_t - Le*(CaSR_t - Cai_t)/self.Vsr_t - (kCson*CaSR_t)*(Cstot - CaCS_t) + kCsoff*CaCS_t - tSR*(CaSR_t - CaSR)/self.Vsr_t
-        if PSR*0.001*CaSR >= PP: 
-            dCaSRdt = self.J_SERCA(Cai, ATP)/self.Vsr - Le*(CaSR - Cai)/self.Vsr + tSR*(CaSR_t - CaSR)/self.Vsr - ((kCson*CaSR)*(Cstot - CaCS) - kCsoff*CaCS) - 1000*(Ap*(PSR*0.001*CaSR - PP)*0.001*PSR*CaSR)
+        dCaitdt   = f_c*(-self.J_MCU_t(Cai_t, Psi_t)/self.V_t + self.J_NCX_t(Cai_t, Cam_t, Psi_t)/self.V_t - self.J_mPTP_t(Cam_t, Cai_t, Psi_t, t)/self.V_t) + self.I_Ca_t(o_0, o_1, o_2, o_3, o_4, u, f_Ca, Cai_t, Cao_t)/self.V_t + self.J_RyR(o_0, o_1, o_2, o_3, o_4, f_Ca, CaSR_t, Cai_t)/self.V_t + (self.Le*(CaSR_t - Cai_t))/self.V_t - self.J_SERCA_t(Cai_t, ATP_t)/self.V_t - (self.kCatpon*Cai_t)*ATP_t + self.kCatpoff*CaATP_t - self.tR*(Cai_t - Cai)/self.V_t
+        dCaidt    = f_c*(-self.J_MCU(Cai, Psi)/self.V_m + self.J_NCX(Cai, Cam, Psi)/self.V_m - self.J_mPTP(Cam, Cai, Psi, t)/self.V_m) + (self.Le*(CaSR-Cai))/self.V_m - self.J_SERCA(Cai, ATP)/self.V_m + self.tR*(Cai_t - Cai)/self.V_m - (self.kCatpon*Cai)*ATP + self.kCatpoff*CaATP - self.kTon*Cai*self.T0(CaT, CaCaT, D0, D1, D2, A1, A2) + self.kToff*CaT - self.kTon*Cai*CaT + self.kToff*CaCaT - self.kTon*Cai*D0 + self.kToff*D1 - self.kTon*Cai*D1 + self.kToff*D2                        
+        dCaSRtdt  = -self.J_RyR(o_0, o_1, o_2, o_3, o_4, f_Ca, CaSR_t, Cai_t)/self.Vsr_t + self.J_SERCA_t(Cai_t, ATP_t)/self.Vsr_t - self.Le*(CaSR_t - Cai_t)/self.Vsr_t - (self.kCson*CaSR_t)*(self.Cstot - CaCS_t) + self.kCsoff*CaCS_t - self.tSR*(CaSR_t - CaSR)/self.Vsr_t
+        if PSR*0.001*CaSR >= self.PP: 
+            dCaSRdt = self.J_SERCA(Cai, ATP)/self.Vsr - self.Le*(CaSR - Cai)/self.Vsr + self.tSR*(CaSR_t - CaSR)/self.Vsr - ((self.kCson*CaSR)*(self.Cstot - CaCS) - self.kCsoff*CaCS) - 1000*(self.Ap*(PSR*0.001*CaSR - self.PP)*0.001*PSR*CaSR)
         else:
-            dCaSRdt = self.J_SERCA(Cai, ATP)/self.Vsr - Le*(CaSR - Cai)/self.Vsr + tSR*(CaSR_t - CaSR)/self.Vsr - ((kCson*CaSR)*(Cstot - CaCS) - kCsoff*CaCS) - 1000*(-Bp*PCSR*(PP -  PSR*0.001*CaSR))            
-        dCaCStdt  = (kCson*CaSR_t)*(Cstot - CaCS_t) - kCsoff*CaCS_t
-        dCaCSdt   = (kCson*CaSR)*(Cstot - CaCS) - kCsoff*CaCS
-        dCaATPtdt = (kCatpon*Cai_t)*ATP_t - kCatpoff*CaATP_t - tATP*((CaATP_t - CaATP))/self.V_t
-        dCaATPdt  = (kCatpon*Cai)*ATP - kCatpoff*CaATP + tATP*((CaATP_t - CaATP))/self.V_m
-        dMgATPtdt = (kMatpon*Mg_t)*ATP_t - kMatpoff*MgATP_t - tATP*((MgATP_t - MgATP))/self.V_t
-        dMgATPdt  = (kMatpon*Mg)*ATP - kMatpoff*MgATP + tATP*((MgATP_t - MgATP))/self.V_m
-        dMgtdt    = -kMatpon*Mg_t*ATP_t + kMatpoff*MgATP_t - tMg*((Mg_t - Mg))/self.V_t
-        dMgdt     = -kMatpon*Mg*ATP + kMatpoff*MgATP + tMg*((Mg_t - Mg))/self.V_m
-        dATPtdt   = self.J_ANT_t(ADP_t, ATP_t, Psi_t, ADPm_t, ATPm_t)/self.V_t - self.J_HYD_t(ATP_t, Cai_t)/self.V_t - kCatpon*Cai_t*ATP_t + kCatpoff*CaATP_t - kMatpon*Mg_t*ATP_t + kMatpoff*MgATP_t - tATP*((ATP_t - ATP))/self.V_t
-        dATPdt    = self.J_ANT(ADP, ATP, Psi, ADPm, ATPm)/self.V_m - self.J_HYD(u, ATP, Cai, Ko_t)/self.V_m - kCatpon*Cai*ATP + kCatpoff*CaATP - kMatpon*Mg*ATP + kMatpoff*MgATP + tATP*((ATP_t - ATP))/self.V_m              
-        dADPtdt   = self.J_HYD_t(ATP_t, Cai_t)/self.V_t - (self.Vm_t/self.V_t)*self.J_ANT_t(ADP_t, ATP_t, Psi_t, ADPm_t, ATPm_t)/self.V_t - tATP*((ADP_t - ADP))/self.V_t
-        dADPdt    = self.J_HYD(u, ATP, Cai, Ko_t)/self.V_m - (self.Vm/self.V_m)*self.J_ANT(ADP, ATP, Psi, ADPm, ATPm)/self.V_m + tATP*((ADP_t - ADP))/self.V_m  
-        dCaTdt    = (kTon*Cai)*self.T0(CaT, CaCaT, D0, D1, D2, A1, A2) - kToff*CaT - (kTon*Cai)*CaT + kToff*CaCaT - k0on*CaT + k0off*D1           
-        dCaCaTdt  = (kTon*Cai)*CaT - kToff*CaCaT - kCaon*CaCaT + kCaoff*D2   
-        dD0dt     = (-kTon*Cai)*D0 + kToff*D1 + k0on*self.T0(CaT, CaCaT, D0, D1, D2, A1, A2) - k0off*D0
-        dD1dt     = (kTon*Cai)*D0 - kToff*D1 + k0on*CaT - k0off*D1 - (kTon*Cai)*D1 + kToff*D2
-        dD2dt     = (kTon*Cai)*D1 - kToff*D2 + kCaon*CaCaT - kCaoff*D2 - f0*D2 + fp*A1 + g0*A2  
-        dA1dt     = f0*D2 - fp*A1 + hp*A2 - h0*A1
-        dA2dt     = -hp*A2 + h0*A1 - g0*A2  
-        dPdt      = 0.001*(self.J_HYD(u, ATP, Cai, Ko_t)/self.V_m) + 0.001*(h0*A1 - hp*A2) - bbp*P - kp*(P - PSR)/self.V_m   
-        if PSR*0.001*CaSR >= PP:
-            dPSRdt  = kp*(P - PSR)/self.Vsr - Ap*(PSR*0.001*CaSR - PP)*(0.001*PSR*CaSR)
-            dPCSRdt = Ap*(PSR*0.001*CaSR - PP)*(0.001*PSR*CaSR)
+            dCaSRdt = self.J_SERCA(Cai, ATP)/self.Vsr - self.Le*(CaSR - Cai)/self.Vsr + self.tSR*(CaSR_t - CaSR)/self.Vsr - ((self.kCson*CaSR)*(self.Cstot - CaCS) - self.kCsoff*CaCS) - 1000*(-self.Bp*PCSR*(self.PP -  PSR*0.001*CaSR))            
+        dCaCStdt  = (self.kCson*CaSR_t)*(self.Cstot - CaCS_t) - self.kCsoff*CaCS_t
+        dCaCSdt   = (self.kCson*CaSR)*(self.Cstot - CaCS) - self.kCsoff*CaCS
+        dCaATPtdt = (self.kCatpon*Cai_t)*ATP_t - self.kCatpoff*CaATP_t - self.tATP*((CaATP_t - CaATP))/self.V_t
+        dCaATPdt  = (self.kCatpon*Cai)*ATP - self.kCatpoff*CaATP + self.tATP*((CaATP_t - CaATP))/self.V_m
+        dMgATPtdt = (self.kMatpon*Mg_t)*ATP_t - self.kMatpoff*MgATP_t - self.tATP*((MgATP_t - MgATP))/self.V_t
+        dMgATPdt  = (self.kMatpon*Mg)*ATP - self.kMatpoff*MgATP + self.tATP*((MgATP_t - MgATP))/self.V_m
+        dMgtdt    = -self.kMatpon*Mg_t*ATP_t + self.kMatpoff*MgATP_t - self.tMg*((Mg_t - Mg))/self.V_t
+        dMgdt     = -self.kMatpon*Mg*ATP + self.kMatpoff*MgATP + self.tMg*((Mg_t - Mg))/self.V_m
+        dATPtdt   = self.J_ANT_t(ADP_t, ATP_t, Psi_t, ADPm_t, ATPm_t)/self.V_t - self.J_HYD_t(ATP_t, Cai_t)/self.V_t - self.kCatpon*Cai_t*ATP_t + self.kCatpoff*CaATP_t - self.kMatpon*Mg_t*ATP_t + self.kMatpoff*MgATP_t - self.tATP*((ATP_t - ATP))/self.V_t
+        dATPdt    = self.J_ANT(ADP, ATP, Psi, ADPm, ATPm)/self.V_m - self.J_HYD(u, ATP, Cai, Ko_t)/self.V_m - self.kCatpon*Cai*ATP + self.kCatpoff*CaATP - self.kMatpon*Mg*ATP + self.kMatpoff*MgATP + self.tATP*((ATP_t - ATP))/self.V_m              
+        dADPtdt   = self.J_HYD_t(ATP_t, Cai_t)/self.V_t - (self.Vm_t/self.V_t)*self.J_ANT_t(ADP_t, ATP_t, Psi_t, ADPm_t, ATPm_t)/self.V_t - self.tATP*((ADP_t - ADP))/self.V_t
+        dADPdt    = self.J_HYD(u, ATP, Cai, Ko_t)/self.V_m - (self.Vm/self.V_m)*self.J_ANT(ADP, ATP, Psi, ADPm, ATPm)/self.V_m + self.tATP*((ADP_t - ADP))/self.V_m  
+        dCaTdt    = (self.kTon*Cai)*self.T0(CaT, CaCaT, D0, D1, D2, A1, A2) - self.kToff*CaT - (self.kTon*Cai)*CaT + self.kToff*CaCaT - self.k0on*CaT + self.k0off*D1           
+        dCaCaTdt  = (self.kTon*Cai)*CaT - self.kToff*CaCaT - self.kCaon*CaCaT + self.kCaoff*D2   
+        dD0dt     = (-self.kTon*Cai)*D0 + self.kToff*D1 + self.k0on*self.T0(CaT, CaCaT, D0, D1, D2, A1, A2) - self.k0off*D0
+        dD1dt     = (self.kTon*Cai)*D0 - self.kToff*D1 + self.k0on*CaT - self.k0off*D1 - (self.kTon*Cai)*D1 + self.kToff*D2
+        dD2dt     = (self.kTon*Cai)*D1 - self.kToff*D2 + self.kCaon*CaCaT - self.kCaoff*D2 - self.f0*D2 + self.fp*A1 + self.g0*A2  
+        dA1dt     = self.f0*D2 - self.fp*A1 + self.hp*A2 - self.h0*A1
+        dA2dt     = -self.hp*A2 + self.h0*A1 - self.g0*A2  
+        dPdt      = 0.001*(self.J_HYD(u, ATP, Cai, Ko_t)/self.V_m) + 0.001*(self.h0*A1 - self.hp*A2) - self.bbp*P - self.kp*(P - PSR)/self.V_m   
+        if PSR*0.001*CaSR >= self.PP:
+            dPSRdt  = self.kp*(P - PSR)/self.Vsr - self.Ap*(PSR*0.001*CaSR - self.PP)*(0.001*PSR*CaSR)
+            dPCSRdt = self.Ap*(PSR*0.001*CaSR - self.PP)*(0.001*PSR*CaSR)
         else:
-            dPSRdt  = kp*(P - PSR)/self.Vsr + Bp*PCSR*(PP - PSR*0.001*CaSR)
-            dPCSRdt = -Bp*PCSR*(PP - PSR*0.001*CaSR)
+            dPSRdt  = self.kp*(P - PSR)/self.Vsr + self.Bp*PCSR*(self.PP - PSR*0.001*CaSR)
+            dPCSRdt = -self.Bp*PCSR*(self.PP - PSR*0.001*CaSR)
         
         dCamtdt   = f_m*(self.J_MCU_t(Cai_t, Psi_t)/self.Vm_t - self.J_NCX_t(Cai_t, Cam_t, Psi_t)/self.Vm_t + self.J_mPTP_t(Cam_t, Cai_t, Psi_t, t)/self.Vm_t)
         dCamdt    = f_m*(self.J_MCU(Cai, Psi)/self.Vm - self.J_NCX(Cai, Cam, Psi)/self.Vm + self.J_mPTP(Cam, Cai, Psi, t)/self.Vm)

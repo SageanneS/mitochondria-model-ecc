@@ -34,7 +34,7 @@ class SingleFiber():
     # Define Global Variables
     global duration, dt
     global Vrp, urp
-    global mr, tk, tCa
+    global mr
     global ko, ki, Nao, Nai, Clo, Cli, ko_t, ki_t, Nao_t, Nai_t, Clo_t, Cli_t 
     global E_Na, E_Cl, E_Na_t, E_Cl_t   
     global Gkir, I_nak, f_nak, Gkir_t, I_nak_t, f_nak_t
@@ -60,7 +60,7 @@ class SingleFiber():
     # Half-Sarcomere Geometry
     Lx, RR, V0, VsrM, VsrC, V_t, V_m, Vm_t, Vm, Vsr_t, Vsr = half_sarcomere()
     # General Conductance Parameters
-    C_m, F, R, T, Nao, Nai, Clo, Cli, Nao_t, Nai_t, Clo_t, Cli_t = conductance_potential()
+    C_m, F, R, T, tk, Nao, Nai, Clo, Cli, Nao_t, Nai_t, Clo_t, Cli_t = conductance_potential()
     # Ion Channel Conductances (Sarcolemma)
     g_K, g_Kir, g_Na, g_Cl, g_NaK = sarcolemma_conductances()
     # Ion Channel Conductances (Tubular System)
@@ -84,9 +84,6 @@ class SingleFiber():
     # Ion Concentrations and Nernst Potentials (Tubular System)
     E_Na_t  = ((R*T)/F)*sp.log(Nao_t/Nai_t)
     E_Cl_t  = -((R*T)/F)*sp.log(Clo_t/Cli_t)
-    # Diffusion Time Constants
-    tk = 559.0
-    tCa = tR
 
     # General Mitochondria Parameters
     C_p, a1m, a2m, f_c, f_m, NADm_tot, alpha_c, alpham_m = mito_properties()  
@@ -380,10 +377,10 @@ class SingleFiber():
         dPsitdt   = (self.a1m*self.J_ETC_t(NADHm_t, Psi_t) - self.a2m*self.J_F1F0_t(ATPm_t, Psi_t) - self.J_ANT_t(ADP_t, ATP_t, Psi_t, ADPm_t, ATPm_t) - self.J_Hleak_t(Psi_t) - self.J_NCX_t(Cai_t, Cam_t, Psi_t) - 2*self.J_MCU_t(Cai_t, Psi_t) - 2*self.J_mPTP_t(Cam_t, Cai_t, Psi_t, t) - self.J_AGC_t(Cai_t, Cam_t, Psi_t))/self.C_p
         dPsidt    = (self.a1m*self.J_ETC(NADHm, Psi) - self.a2m*self.J_F1F0(ATPm, Psi) - self.J_ANT(ADP, ATP, Psi, ADPm, ATPm) - self.J_Hleak(Psi) - self.J_NCX(Cai, Cam, Psi) - 2*self.J_MCU(Cai, Psi) - 2*self.J_mPTP(Cam, Cai, Psi, t) - self.J_AGC(Cai, Cam, Psi))/self.C_p
         
-        dCaotdt = (self.I_Ca_t(o_0, o_1, o_2, o_3, o_4, u, f_Ca, Cai_t, Cao_t)/1000*self.F*1000*self.Vsr) - (Cao_t - Cao_t)/tCa
-        dKotdt  = (((self.I_KIR_t(u, Ko_t, Ki_t) + self.I_KDR_t(u, n_t, hk_t, Ko_t, Ki_t) -(2*self.I_NaK_t(u, ATP, Ko_t)))/1000*self.F*1000*self.Vsr) - ((Ko_t - Ko)/tk) - (Ko_t - Ko_t)/tk)
+        dCaotdt = (self.I_Ca_t(o_0, o_1, o_2, o_3, o_4, u, f_Ca, Cai_t, Cao_t)/1000*self.F*1000*self.Vsr) - (Cao_t - Cao_t)/self.tCa
+        dKotdt  = (((self.I_KIR_t(u, Ko_t, Ki_t) + self.I_KDR_t(u, n_t, hk_t, Ko_t, Ki_t) -(2*self.I_NaK_t(u, ATP, Ko_t)))/1000*self.F*1000*self.Vsr) - ((Ko_t - Ko)/self.tk) - (Ko_t - Ko_t)/self.tk)
         dKitdt  = dKotdt*(15.5/25.0)
-        dKodt   = (((self.I_KIR(V, Ko, Ki) + self.I_KDR(V, n, hk, Ko, Ki) - 2*self.I_NaK(u, Ko))/1000*self.F*1000*self.VsrS)-((Ko - Ko)/tk + (Ko - Ko)/tk + (Ko - Ko_t)/tk))
+        dKodt   = (((self.I_KIR(V, Ko, Ki) + self.I_KDR(V, n, hk, Ko, Ki) - 2*self.I_NaK(u, Ko))/1000*self.F*1000*self.VsrS)-((Ko - Ko)/self.tk + (Ko - Ko)/self.tk + (Ko - Ko_t)/self.tk))
         dKidt   = dKodt*(15.5/25.0)
 
         return dVdt, dndt, dhkdt, dmdt, dhdt, dSdt, dudt, dntdt, dhktdt, dmtdt, dhtdt, dStdt, dc0dt, do0dt, dc1dt, do1dt, dc2dt, do2dt, dc3dt, do3dt, dc4dt, do4dt, dfCadt, dCaitdt, dCaidt, dCaSRtdt, dCaSRdt, dCaCStdt, dCaCSdt, dCaATPtdt, dCaATPdt, dMgATPtdt, dMgATPdt, dMgtdt, dMgdt, dATPtdt, dATPdt, dADPtdt, dADPdt, dCaTdt, dCaCaTdt, dD0dt, dD1dt, dD2dt, dA1dt, dA2dt, dPdt, dPSRdt, dPCSRdt, dCamtdt, dCamdt, dNADHmtdt, dNADHmdt, dADPmtdt, dADPmdt, dATPmtdt, dATPmdt, dPsitdt, dPsidt, dCaotdt, dKotdt, dKitdt, dKodt, dKidt

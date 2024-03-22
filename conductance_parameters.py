@@ -19,7 +19,7 @@ def conductance_potential():
     Clo_t   = Clo
     Cli_t   = Cli 
 
-    return C_m, F, R, T, Nao, Nai, Clo, Cli, Nao_t, Nai_t, Clo_t, Cli_t
+    return C_m, F, R, T, tk, Nao, Nai, Clo, Cli, Nao_t, Nai_t, Clo_t, Cli_t
 
 def sarcolemma_conductances():
 

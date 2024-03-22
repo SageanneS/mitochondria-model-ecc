@@ -7,7 +7,8 @@ def diffusion_constants():
     tCa      = tR                                                              # um^3/ms Intercompartment Ca diffusion parameter
     tATP     = 0.375                                                           # um^3/ms intercompartmental ATP diffusion parameter 
     tMg      = 1.5                                                             # um^3/ms intercompartmental Mg diffusion parameter
-    
+    tCa      = tR                                                              # Membrane Ca2+ diffusion parameter
+
     return tR, tSR, tCa, tATP, tMg
 
 def binding_sites():

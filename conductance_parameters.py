@@ -6,6 +6,7 @@ def conductance_potential():
     F     = 96.485   # Faraday's Constant
     R     = 8.31441  # Gas Constant
     T     = 273+37.0 # Temperature (Kelvins)
+    tk    = 559.0    # Membrane K+ Diffusion Parameter
 
     # Ion Concentrations - Sarcolemma
     Nao   = 140.0

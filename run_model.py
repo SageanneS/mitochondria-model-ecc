@@ -27,6 +27,7 @@ from anatomical_parameters import muscle_fiber, half_sarcomere
 from conductance_parameters import conductance_potential, sarcolemma_conductances, tubular_conductances
 from rate_parameters import voltage_channel_rates, voltage_calcium_channel_rates
 from contraction_parameters import diffusion_constants, binding_sites, rate_constants_catrp, rate_constants_xbcyc
+from mitochondria_parameters import mito_properties, calcium_exchange, metabolism, OXPHOS
 
 class SingleFiber():
         
@@ -38,9 +39,6 @@ class SingleFiber():
     global E_Na, E_Cl, E_Na_t, E_Cl_t   
     global Gkir, I_nak, f_nak, Gkir_t, I_nak_t, f_nak_t
     global Cao_t
-    global f_c, f_m, V_MCU, V_NCX, k_mPTP, V_ANT, V_F1F0, V_AGC, k_HYD, k_GLY, k_ETC, K_AGC, q_6, q_8, a1, a2, q_9, q_10
-    global K_1, K_2, L, nA, q_7, Cam_thresh, p_3, KATP, theta, K_h, q_1, NADm_tot, q_2, q_3, q_4, q_5, p_4, C_p
-    global alpha_c, alpham_m
 
     # Simulation Parameters
     dt       = 0.001
@@ -91,52 +89,13 @@ class SingleFiber():
     tCa = tR
 
     # General Mitochondria Parameters
-    C_p      = 1.8                                                             # uM/mV Mitochondrial inner membrane capacitance divided by F
-    a1       = 120.0                                                           # scaling factor between NADH consumption and change in membrane voltage
-    a2       = 3.43                                                            # scaling factor between ATP production by ATPase and change in membrane voltage     
-    f_c      = 1.0                                                             # Fraction of free over buffer-bound Ca in cytosol
-    f_m      = 0.01                                                            # Fraction of free over buffer-bound Ca in mitochondria
-    NADm_tot = 2970.0                                                          # uM Total concentration of mitochondrial pyridine nucleotide
-    alpha_c  = 0.111
-    alpham_m = 0.139
-    
+    C_p, a1m, a2m, f_c, f_m, NADm_tot, alpha_c, alpham_m = mito_properties()  
     # Mitochondrial Calcium Exchange Parameters
-    p_1        = 0.1                                                           # /mV Voltage dependence coefficient of MCU activity
-    p_3        = 0.075                                                         # /mV MODEL FIT Voltage dependence coefficient of calcium leak
-    nA         = 2.8                                                           # cooperativity paramter for MCU
-    L          = 130.0                                                         # Allosteric equilibrium constant for uniporter conformations
-    K_1        = 19.0                                                          # uM Dissociation constant for Ca translocation by MCU
-    K_2        = 0.38                                                          # uM Dissociation constant for MCU activation by Ca
-    V_MCU      = 0.0215                                                        # uM/ms max uptake rate of MCU                                                                
-    k_mPTP     = 0.000008                                                      # /ms Rate constant of bidirectional Ca leak from mitochondria
-    V_NCX      = 0.00035                                                       # uM/ms max uptake of NCX                                          
-    Cam_thresh = 2328.0                                                        # uM mPTP Ca Threshold Value 
-  
+    p_1, p_3, nA, L, K_1, K_2, V_MCU, k_mPTP, V_NCX, Cam_thresh = calcium_exchange()
     # Mitochondrial Metabolism Parameters
-    K_AGC = 0.14                                                               # uM Dissociation constant of Ca from AGC
-    p_4   = 0.01                                                               # /mV Voltage dependence coefficient of AGC activity
-    q_1   = 1.0                                                                # Michaelis-Menten-like constant for NAD+ consumption by the Krebs cycle
-    q_2   = 0.1                                                                # uM S0.5 value for activation of the Krebs cycle by Ca
-    V_AGC = 0.025                                                              # uM/ms Rate constant of NADH production via malate-aspartate shuttle
-    k_GLY = 0.468                                                              # uM/ms Velocity of glycolysis
-
+    K_AGC, p_4, q_1, q_2, V_AGC, k_GLY = metabolism()
     # Mitochondrial OXPHOS Parameters
-    q_3     = 100.0                                                            # uM Michaelis-Menten constant for NADH consumption by the ETC
-    q_4     = 177.0                                                            # mV Voltage dependence coefficient 1 of ETC activity
-    q_5     = 5.0                                                              # mV Voltage dependence coefficient 2 of ETC activity
-    q_6     = 10000.0                                                          # uM Inhibition constant of ATPase activity by ATP
-    q_7     = 190.0                                                            # mV Voltage dependence coefficient of ATPase activity
-    q_8     = 8.5                                                              # mV Voltage dependence coefficient of ATPase activity
-    q_9     = 0.0020                                                           # uM/ms*mV Voltage dependence of the proton leak
-    q_10    = -0.030                                                           # uM/ms Rate constant of the voltage-independent proton leak
-    K_h     = 150.0                                                            # uM Michaelis-Menten constant for ATP hydrolysis
-    k_HYD   = 0.0114417                                                        # uM/ms Maximal rate of ATP hydrolysis
-    V_ANT   = 8.123                                                            # uM/ms Rate constant of the adenine nucleotide translocator
-    V_F1F0  = 3.6                                                              # uM/ms Rate constant of the F1FO ATPase
-    KATP    = 3.5                                                              # uM
-    theta   = 0.35                                                             # ANT parameter
-    V_AT    = 0.50915                                                          # /ms rate of ATP transport from mitochondria into myoplasm 
-    k_ETC   = 0.764                                                            # uM/ms Rate constant of NADH oxidation by ETC
+    q_3, q_4, q_5, q_6, q_7, q_8, q_9, q_10, K_h, k_HYD, V_ANT, V_F1F0, KATP, theta, V_AT, k_ETC = OXPHOS()
 
     # IKDR Channel
     def alpha_n(self,V):
@@ -278,65 +237,65 @@ class SingleFiber():
     
     # Calcium Dynamics (Mitochondria)    
     def J_MCU_t(self, Cai_t, Psi_t):
-        return V_MCU*(((Cai_t/K_1)*((1 + (Cai_t/K_1))**3)*((2*self.F)*(Psi_t - 91.0)/(self.R*self.T)))/(((1 + (Cai_t/K_1))**4) + (L/((1 + (Cai_t/K_2))**nA))*(1 - sp.exp((-(2*self.F)*(Psi_t - 91.0))/(self.R*self.T)))))
+        return self.V_MCU*(((Cai_t/self.K_1)*((1 + (Cai_t/self.K_1))**3)*((2*self.F)*(Psi_t - 91.0)/(self.R*self.T)))/(((1 + (Cai_t/self.K_1))**4) + (self.L/((1 + (Cai_t/self.K_2))**self.nA))*(1 - sp.exp((-(2*self.F)*(Psi_t - 91.0))/(self.R*self.T)))))
     def J_MCU(self, Cai, Psi):
-        return V_MCU*(((Cai/K_1)*((1 + (Cai/K_1))**3)*((2*self.F)*(Psi - 91.0)/(self.R*self.T)))/(((1 + (Cai/K_1))**4) + (L/((1 + (Cai/K_2))**nA))*(1 - sp.exp((-(2*self.F)*(Psi - 91.0))/(self.R*self.T)))))
+        return self.V_MCU*(((Cai/self.K_1)*((1 + (Cai/self.K_1))**3)*((2*self.F)*(Psi - 91.0)/(self.R*self.T)))/(((1 + (Cai/self.K_1))**4) + (self.L/((1 + (Cai/self.K_2))**self.nA))*(1 - sp.exp((-(2*self.F)*(Psi - 91.0))/(self.R*self.T)))))
     def J_NCX_t(self, Cai_t, Cam_t, Psi_t):
-        return V_NCX*(sp.exp((0.5*self.F/(self.R*self.T))*(Psi_t - q_7))*sp.exp(sp.log(Cai_t/Cam_t)))/((1 + (9.4/Nai_t)**3)*(1 + (1.1/Cam_t)))
+        return self.V_NCX*(sp.exp((0.5*self.F/(self.R*self.T))*(Psi_t - self.q_7))*sp.exp(sp.log(Cai_t/Cam_t)))/((1 + (9.4/Nai_t)**3)*(1 + (1.1/Cam_t)))
     def J_NCX(self, Cai, Cam, Psi):
-        return V_NCX*(sp.exp((0.5*self.F/(self.R*self.T))*(Psi - q_7))*sp.exp(sp.log(Cai/Cam)))/((1 + (9.4/Nai_t)**3)*(1 + (1.1/Cam)))
+        return self.V_NCX*(sp.exp((0.5*self.F/(self.R*self.T))*(Psi - self.q_7))*sp.exp(sp.log(Cai/Cam)))/((1 + (9.4/Nai_t)**3)*(1 + (1.1/Cam)))
     
     def J_mPTP_t(self, Cam_t, Cai_t, Psi_t, t):
-        J_mPTP_t = (k_mPTP*(Cai_t - Cam_t)*sp.exp(p_3*Psi_t)) # Low Conductance
-        if (Cam_t >= Cam_thresh).any():
+        J_mPTP_t = (self.k_mPTP*(Cai_t - Cam_t)*sp.exp(self.p_3*Psi_t)) # Low Conductance
+        if (Cam_t >= self.Cam_thresh).any():
             J_mPTP_t = (12.0/5.0)*J_mPTP_t                    # High Conductance
         return J_mPTP_t
     
     def J_mPTP(self, Cam, Cai, Psi, t):
-        J_mPTP = (k_mPTP*(Cai - Cam)*sp.exp(p_3*Psi))                # Low Conductance
-        if (Cam >= Cam_thresh).any():
-            J_mPTP = (12.0/5.0)*(k_mPTP*(Cai - Cam)*sp.exp(p_3*Psi)) # High Conductance
+        J_mPTP = (self.k_mPTP*(Cai - Cam)*sp.exp(self.p_3*Psi))                # Low Conductance
+        if (Cam >= self.Cam_thresh).any():
+            J_mPTP = (12.0/5.0)*(self.k_mPTP*(Cai - Cam)*sp.exp(self.p_3*Psi)) # High Conductance
         return J_mPTP 
     
     # Conservation Equations
     def T0(self, CaT, CaCaT, D0, D1, D2, A1, A2):
         return self.Ttot - CaT - CaCaT - D0 - D1 - D2 - A1 - A2
     def NADm_t(self, NADHm_t):
-        return NADm_tot - NADHm_t
+        return self.NADm_tot - NADHm_t
     def NADm(self, NADHm):
-        return NADm_tot - NADHm
+        return self.NADm_tot - NADHm
     
     # Mitochondrial Metabolism
     def J_PDH_t(self, NADHm_t, Cam_t):
-        return k_GLY*(1/(q_1 + (NADHm_t/self.NADm_t(NADHm_t))))*(Cam_t/(q_2 + Cam_t))
+        return self.k_GLY*(1/(self.q_1 + (NADHm_t/self.NADm_t(NADHm_t))))*(Cam_t/(self.q_2 + Cam_t))
     def J_PDH(self, NADHm, Cam):
-        return k_GLY*(1/(q_1 + (NADHm/self.NADm(NADHm))))*(Cam/(q_2 + Cam))
+        return self.k_GLY*(1/(self.q_1 + (NADHm/self.NADm(NADHm))))*(Cam/(self.q_2 + Cam))
     def J_AGC_t(self, Cai_t, Cam_t, Psi_t):
-        return V_AGC*(Cai_t/(K_AGC + Cai_t))*(q_2/(q_2 + Cam_t))*(sp.exp(p_4*Psi_t))
+        return self.V_AGC*(Cai_t/(self.K_AGC + Cai_t))*(self.q_2/(self.q_2 + Cam_t))*(sp.exp(self.p_4*Psi_t))
     def J_AGC(self, Cai, Cam, Psi):
-        return V_AGC*(Cai/(K_AGC + Cai))*(q_2/(q_2 + Cam))*(sp.exp(p_4*Psi))
+        return self.V_AGC*(Cai/(self.K_AGC + Cai))*(self.q_2/(self.q_2 + Cam))*(sp.exp(self.p_4*Psi))
     
     # Mitochondrial OXPHOS
     def J_ETC_t(self, NADHm_t, Psi_t):
-        return k_ETC*(NADHm_t/(q_3 + NADHm_t))*(1/(1 + sp.exp((Psi_t - q_4)/q_5)))
+        return self.k_ETC*(NADHm_t/(self.q_3 + NADHm_t))*(1/(1 + sp.exp((Psi_t - self.q_4)/self.q_5)))
     def J_ETC(self, NADHm, Psi):
-        return k_ETC*(NADHm/(q_3 + NADHm))*(1/(1 + sp.exp((Psi - q_4)/q_5)))
+        return self.k_ETC*(NADHm/(self.q_3 + NADHm))*(1/(1 + sp.exp((Psi - self.q_4)/self.q_5)))
     def J_F1F0_t(self, ATPm_t, Psi_t):
-        return V_F1F0*(q_6/(q_6 + ATPm_t))*(1/(1 + sp.exp((q_7-Psi_t)/q_8)))
+        return self.V_F1F0*(self.q_6/(self.q_6 + ATPm_t))*(1/(1 + sp.exp((self.q_7-Psi_t)/self.q_8)))
     def J_F1F0(self, ATPm, Psi):
-        return V_F1F0*(q_6/(q_6 + ATPm))*(1/(1 + sp.exp((q_7-Psi)/q_8)))
+        return self.V_F1F0*(self.q_6/(self.q_6 + ATPm))*(1/(1 + sp.exp((self.q_7-Psi)/self.q_8)))
     def J_ANT_t(self, ADP_t, ATP_t, Psi_t, ADPm_t, ATPm_t):
-        return V_ANT*(ADP_t/(ADP_t + ATP_t*sp.exp(-(theta*self.F)*Psi_t/(self.R*self.T))) - ADPm_t/(ADPm_t + ATPm_t*sp.exp(((1-theta)*self.F)*Psi_t/(self.R*self.T))))*(1/(1 + KATP/ADP_t))
+        return self.V_ANT*(ADP_t/(ADP_t + ATP_t*sp.exp(-(self.theta*self.F)*Psi_t/(self.R*self.T))) - ADPm_t/(ADPm_t + ATPm_t*sp.exp(((1-self.theta)*self.F)*Psi_t/(self.R*self.T))))*(1/(1 + self.KATP/ADP_t))
     def J_ANT(self, ADP, ATP, Psi, ADPm, ATPm):
-        return V_ANT*(ADP/(ADP + ATP*sp.exp(-(theta*self.F)*Psi/(self.R*self.T))) - ADPm/(ADPm + ATPm*sp.exp(((1-theta)*self.F)*Psi/(self.R*self.T))))*(1/(1 + KATP/ADP))
+        return self.V_ANT*(ADP/(ADP + ATP*sp.exp(-(self.theta*self.F)*Psi/(self.R*self.T))) - ADPm/(ADPm + ATPm*sp.exp(((1-self.theta)*self.F)*Psi/(self.R*self.T))))*(1/(1 + self.KATP/ADP))
     def J_Hleak_t(self, Psi_t):
-        return q_9*Psi_t + q_10
+        return self.q_9*Psi_t + self.q_10
     def J_Hleak(self, Psi):
-        return q_9*Psi + q_10
+        return self.q_9*Psi + self.q_10
     def J_HYD_t(self, ATP_t, Cai_t):
-        return self.J_SERCA_t(Cai_t, ATP_t)/2 + k_HYD*(ATP_t/(ATP_t + K_h))
+        return self.J_SERCA_t(Cai_t, ATP_t)/2 + self.k_HYD*(ATP_t/(ATP_t + self.K_h))
     def J_HYD(self, u, ATP, Cai, Ko_t):
-        return self.I_NaK_t(u, ATP, Ko_t)/5 + self.J_SERCA(Cai, ATP)/2 + k_HYD*(ATP/(ATP + K_h))
+        return self.I_NaK_t(u, ATP, Ko_t)/5 + self.J_SERCA(Cai, ATP)/2 + self.k_HYD*(ATP/(ATP + self.K_h))
     
     @staticmethod
     def dALLdt(X, t, self, i):
@@ -376,8 +335,8 @@ class SingleFiber():
         dfCadt = (self.fCainf_t(Cai_t) - f_Ca)/(self.tfCa_t(Cai_t))
         
 
-        dCaitdt   = f_c*(-self.J_MCU_t(Cai_t, Psi_t)/self.V_t + self.J_NCX_t(Cai_t, Cam_t, Psi_t)/self.V_t - self.J_mPTP_t(Cam_t, Cai_t, Psi_t, t)/self.V_t) + self.I_Ca_t(o_0, o_1, o_2, o_3, o_4, u, f_Ca, Cai_t, Cao_t)/self.V_t + self.J_RyR(o_0, o_1, o_2, o_3, o_4, f_Ca, CaSR_t, Cai_t)/self.V_t + (self.Le*(CaSR_t - Cai_t))/self.V_t - self.J_SERCA_t(Cai_t, ATP_t)/self.V_t - (self.kCatpon*Cai_t)*ATP_t + self.kCatpoff*CaATP_t - self.tR*(Cai_t - Cai)/self.V_t
-        dCaidt    = f_c*(-self.J_MCU(Cai, Psi)/self.V_m + self.J_NCX(Cai, Cam, Psi)/self.V_m - self.J_mPTP(Cam, Cai, Psi, t)/self.V_m) + (self.Le*(CaSR-Cai))/self.V_m - self.J_SERCA(Cai, ATP)/self.V_m + self.tR*(Cai_t - Cai)/self.V_m - (self.kCatpon*Cai)*ATP + self.kCatpoff*CaATP - self.kTon*Cai*self.T0(CaT, CaCaT, D0, D1, D2, A1, A2) + self.kToff*CaT - self.kTon*Cai*CaT + self.kToff*CaCaT - self.kTon*Cai*D0 + self.kToff*D1 - self.kTon*Cai*D1 + self.kToff*D2                        
+        dCaitdt   = self.f_c*(-self.J_MCU_t(Cai_t, Psi_t)/self.V_t + self.J_NCX_t(Cai_t, Cam_t, Psi_t)/self.V_t - self.J_mPTP_t(Cam_t, Cai_t, Psi_t, t)/self.V_t) + self.I_Ca_t(o_0, o_1, o_2, o_3, o_4, u, f_Ca, Cai_t, Cao_t)/self.V_t + self.J_RyR(o_0, o_1, o_2, o_3, o_4, f_Ca, CaSR_t, Cai_t)/self.V_t + (self.Le*(CaSR_t - Cai_t))/self.V_t - self.J_SERCA_t(Cai_t, ATP_t)/self.V_t - (self.kCatpon*Cai_t)*ATP_t + self.kCatpoff*CaATP_t - self.tR*(Cai_t - Cai)/self.V_t
+        dCaidt    = self.f_c*(-self.J_MCU(Cai, Psi)/self.V_m + self.J_NCX(Cai, Cam, Psi)/self.V_m - self.J_mPTP(Cam, Cai, Psi, t)/self.V_m) + (self.Le*(CaSR-Cai))/self.V_m - self.J_SERCA(Cai, ATP)/self.V_m + self.tR*(Cai_t - Cai)/self.V_m - (self.kCatpon*Cai)*ATP + self.kCatpoff*CaATP - self.kTon*Cai*self.T0(CaT, CaCaT, D0, D1, D2, A1, A2) + self.kToff*CaT - self.kTon*Cai*CaT + self.kToff*CaCaT - self.kTon*Cai*D0 + self.kToff*D1 - self.kTon*Cai*D1 + self.kToff*D2                        
         dCaSRtdt  = -self.J_RyR(o_0, o_1, o_2, o_3, o_4, f_Ca, CaSR_t, Cai_t)/self.Vsr_t + self.J_SERCA_t(Cai_t, ATP_t)/self.Vsr_t - self.Le*(CaSR_t - Cai_t)/self.Vsr_t - (self.kCson*CaSR_t)*(self.Cstot - CaCS_t) + self.kCsoff*CaCS_t - self.tSR*(CaSR_t - CaSR)/self.Vsr_t
         if PSR*0.001*CaSR >= self.PP: 
             dCaSRdt = self.J_SERCA(Cai, ATP)/self.Vsr - self.Le*(CaSR - Cai)/self.Vsr + self.tSR*(CaSR_t - CaSR)/self.Vsr - ((self.kCson*CaSR)*(self.Cstot - CaCS) - self.kCsoff*CaCS) - 1000*(self.Ap*(PSR*0.001*CaSR - self.PP)*0.001*PSR*CaSR)
@@ -410,16 +369,16 @@ class SingleFiber():
             dPSRdt  = self.kp*(P - PSR)/self.Vsr + self.Bp*PCSR*(self.PP - PSR*0.001*CaSR)
             dPCSRdt = -self.Bp*PCSR*(self.PP - PSR*0.001*CaSR)
         
-        dCamtdt   = f_m*(self.J_MCU_t(Cai_t, Psi_t)/self.Vm_t - self.J_NCX_t(Cai_t, Cam_t, Psi_t)/self.Vm_t + self.J_mPTP_t(Cam_t, Cai_t, Psi_t, t)/self.Vm_t)
-        dCamdt    = f_m*(self.J_MCU(Cai, Psi)/self.Vm - self.J_NCX(Cai, Cam, Psi)/self.Vm + self.J_mPTP(Cam, Cai, Psi, t)/self.Vm)
+        dCamtdt   = self.f_m*(self.J_MCU_t(Cai_t, Psi_t)/self.Vm_t - self.J_NCX_t(Cai_t, Cam_t, Psi_t)/self.Vm_t + self.J_mPTP_t(Cam_t, Cai_t, Psi_t, t)/self.Vm_t)
+        dCamdt    = self.f_m*(self.J_MCU(Cai, Psi)/self.Vm - self.J_NCX(Cai, Cam, Psi)/self.Vm + self.J_mPTP(Cam, Cai, Psi, t)/self.Vm)
         dNADHmtdt = self.J_PDH_t(NADHm_t, Cam_t)/self.Vm_t - self.J_ETC_t(NADHm_t, Psi_t)/self.Vm_t + self.J_AGC_t(Cai_t, Cam_t, Psi_t)/self.Vm_t
         dNADHmdt  = self.J_PDH(NADHm, Cam)/self.Vm - self.J_ETC(NADHm, Psi)/self.Vm + self.J_AGC(Cai, Cam, Psi)/self.Vm
         dADPmtdt  = self.J_ANT_t(ADP_t, ATP_t, Psi_t, ADPm_t, ATPm_t)/self.Vm_t - self.J_F1F0_t(ATPm_t, Psi_t)/self.Vm_t
         dADPmdt   = self.J_ANT(ADP, ATP, Psi, ADPm, ATPm)/self.Vm - self.J_F1F0(ATPm, Psi)/self.Vm
         dATPmtdt  = self.J_F1F0_t(ATPm_t, Psi_t)/self.Vm_t - self.J_ANT_t(ADP_t, ATP_t, Psi_t, ADPm_t, ATPm_t)/self.Vm_t
         dATPmdt   = self.J_F1F0(ATPm, Psi)/self.Vm - self.J_ANT(ADP, ATP, Psi, ADPm, ATPm)/self.Vm
-        dPsitdt   = (a1*self.J_ETC_t(NADHm_t, Psi_t) - a2*self.J_F1F0_t(ATPm_t, Psi_t) - self.J_ANT_t(ADP_t, ATP_t, Psi_t, ADPm_t, ATPm_t) - self.J_Hleak_t(Psi_t) - self.J_NCX_t(Cai_t, Cam_t, Psi_t) - 2*self.J_MCU_t(Cai_t, Psi_t) - 2*self.J_mPTP_t(Cam_t, Cai_t, Psi_t, t) - self.J_AGC_t(Cai_t, Cam_t, Psi_t))/C_p
-        dPsidt    = (a1*self.J_ETC(NADHm, Psi) - a2*self.J_F1F0(ATPm, Psi) - self.J_ANT(ADP, ATP, Psi, ADPm, ATPm) - self.J_Hleak(Psi) - self.J_NCX(Cai, Cam, Psi) - 2*self.J_MCU(Cai, Psi) - 2*self.J_mPTP(Cam, Cai, Psi, t) - self.J_AGC(Cai, Cam, Psi))/C_p
+        dPsitdt   = (self.a1m*self.J_ETC_t(NADHm_t, Psi_t) - self.a2m*self.J_F1F0_t(ATPm_t, Psi_t) - self.J_ANT_t(ADP_t, ATP_t, Psi_t, ADPm_t, ATPm_t) - self.J_Hleak_t(Psi_t) - self.J_NCX_t(Cai_t, Cam_t, Psi_t) - 2*self.J_MCU_t(Cai_t, Psi_t) - 2*self.J_mPTP_t(Cam_t, Cai_t, Psi_t, t) - self.J_AGC_t(Cai_t, Cam_t, Psi_t))/self.C_p
+        dPsidt    = (self.a1m*self.J_ETC(NADHm, Psi) - self.a2m*self.J_F1F0(ATPm, Psi) - self.J_ANT(ADP, ATP, Psi, ADPm, ATPm) - self.J_Hleak(Psi) - self.J_NCX(Cai, Cam, Psi) - 2*self.J_MCU(Cai, Psi) - 2*self.J_mPTP(Cam, Cai, Psi, t) - self.J_AGC(Cai, Cam, Psi))/self.C_p
         
         dCaotdt = (self.I_Ca_t(o_0, o_1, o_2, o_3, o_4, u, f_Ca, Cai_t, Cao_t)/1000*self.F*1000*self.Vsr) - (Cao_t - Cao_t)/tCa
         dKotdt  = (((self.I_KIR_t(u, Ko_t, Ki_t) + self.I_KDR_t(u, n_t, hk_t, Ko_t, Ki_t) -(2*self.I_NaK_t(u, ATP, Ko_t)))/1000*self.F*1000*self.Vsr) - ((Ko_t - Ko)/tk) - (Ko_t - Ko_t)/tk)

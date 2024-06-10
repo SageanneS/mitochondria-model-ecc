@@ -3,8 +3,8 @@ def mito_properties():
 
     # General Mitochondria Parameters
     C_p      = 1.8                                                             # uM/mV Mitochondrial inner membrane capacitance divided by F
-    a1m       = 120.0                                                          # scaling factor between NADH consumption and change in membrane voltage
-    a2m       = 3.43                                                           # scaling factor between ATP production by ATPase and change in membrane voltage     
+    a1m      = 120.0                                                          # scaling factor between NADH consumption and change in membrane voltage
+    a2m      = 3.43                                                           # scaling factor between ATP production by ATPase and change in membrane voltage     
     f_c      = 1.0                                                             # Fraction of free over buffer-bound Ca in cytosol
     f_m      = 0.01                                                            # Fraction of free over buffer-bound Ca in mitochondria
     NADm_tot = 2970.0                                                          # uM Total concentration of mitochondrial pyridine nucleotide
